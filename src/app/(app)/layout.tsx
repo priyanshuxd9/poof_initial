@@ -57,7 +57,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        © {new Date().getFullYear()} fadEM'. All rights reserved. (fadEM' - like fade them!)
+        © {new Date().getFullYear()} Poof. All rights reserved. (Poof, magic!)
       </footer>
     </div>
   );

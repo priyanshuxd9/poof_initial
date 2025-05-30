@@ -1,7 +1,7 @@
 
-# fadEM' - Group Chats that Fade Away
+# Poof - Ephemeral Group Chats
 
-fadEM' is a web application that allows users to create temporary, self-destructing group chats. The core idea is to provide a platform for ephemeral conversations that automatically disappear after a set timer, ensuring privacy and a clean slate.
+Poof is a web application that allows users to create temporary, self-destructing group chats. The core idea is to provide a platform for ephemeral conversations that automatically disappear after a set timer, ensuring privacy and a clean slate.
 
 ## Core Features
 
@@ -10,7 +10,7 @@ fadEM' is a web application that allows users to create temporary, self-destruct
 -   **Emoji Reactions**: Users can react to messages with emojis to enhance communication.
 -   **Multimedia Sharing**: Share photos and videos within groups (up to 30MB per file).
 -   **Unique Invite Code**: Each group has a unique, shareable invite code for easy joining (no passwords needed for invites).
--   **Self-Destruct Timer**: Groups automatically "fadEM'" (all content deleted and group disbanded) after a user-defined timer (1 to 31 days). A warning is displayed when 15% of the time remains.
+-   **Self-Destruct Timer**: Groups automatically "Poof" (all content deleted and group disbanded) after a user-defined timer (1 to 31 days). A warning is displayed when 15% of the time remains.
 
 ## Tech Stack
 
@@ -62,7 +62,7 @@ The app aims for a clean, modern, and user-friendly interface:
 1.  **Clone the repository**:
     ```bash
     git clone <repository-url>
-    cd fadem-app 
+    cd poof-app 
     ```
 
 2.  **Install dependencies**:

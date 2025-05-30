@@ -1,3 +1,4 @@
+
 import { Logo } from '@/components/shared/logo';
 
 export default function AuthLayout({
@@ -15,9 +16,10 @@ export default function AuthLayout({
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
-          fadEM': Create temporary groups that... well, fade 'em!
+          Poof: Group chats that vanish without a trace.
         </p>
       </div>
     </div>
   );
 }
+

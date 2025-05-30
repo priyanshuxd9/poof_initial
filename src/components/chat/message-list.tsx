@@ -44,7 +44,7 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
         <Image src="https://placehold.co/200x200.png" alt="Empty Chat" width={150} height={150} className="opacity-50 mb-4" data-ai-hint="empty chat illustration"/>
         <h3 className="text-xl font-semibold text-foreground">It's quiet in here...</h3>
-        <p className="text-muted-foreground">Be the first to send a message in this fadEM' group!</p>
+        <p className="text-muted-foreground">Be the first to send a message in this Poof group!</p>
       </div>
     );
   }
@@ -60,3 +60,4 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
     </ScrollArea>
   );
 }
+

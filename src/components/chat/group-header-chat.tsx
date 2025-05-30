@@ -48,8 +48,8 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
 
       if (timeLeft <= 0) {
         setTimeRemainingPercent(0);
-        setTimeRemainingText("Faded!");
-        setShowWarning(false); // No warning if already faded
+        setTimeRemainingText("Poofed!");
+        setShowWarning(false); // No warning if already poofed
         return;
       }
       
@@ -70,7 +70,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
       } else if (minutes > 0) {
         setTimeRemainingText(`${minutes}m left`);
       } else {
-        setTimeRemainingText("Fading soon!");
+        setTimeRemainingText("Poofing soon!");
       }
     };
 
@@ -134,7 +134,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
         </div>
       </div>
       <Progress value={timeRemainingPercent} className="h-1.5 mt-3" />
-      {showWarning && timeRemainingText !== "Faded!" && (
+      {showWarning && timeRemainingText !== "Poofed!" && (
         <Alert variant="destructive" className="mt-3 animate-pulse">
           <Clock className="h-4 w-4" />
           <AlertTitle>Warning!</AlertTitle>

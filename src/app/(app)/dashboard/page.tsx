@@ -38,8 +38,8 @@ const mockGroupsData: Group[] = [
   },
   {
     id: "2",
-    name: "Project fadEM' Planning",
-    description: "Internal discussion for the fadEM' app development. Next deadline: UI freeze.",
+    name: "Project Poof Planning",
+    description: "Internal discussion for the Poof app development. Next deadline: UI freeze.",
     memberCount: 5,
     lastActivity: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
     imageUrl: "https://placehold.co/600x338.png",
@@ -64,7 +64,7 @@ interface GroupListItemProps {
 
 function GroupListItem({ group }: GroupListItemProps) {
   const [timeRemainingText, setTimeRemainingText] = useState("");
-  const [isFadingSoon, setIsFadingSoon] = useState(false);
+  const [isPoofingSoon, setIsPoofingSoon] = useState(false);
 
   useEffect(() => {
     const calculateRemainingTime = () => {
@@ -76,13 +76,13 @@ function GroupListItem({ group }: GroupListItemProps) {
       const timeLeft = destructTime - now;
 
       if (timeLeft <= 0) {
-        setTimeRemainingText("Faded!");
-        setIsFadingSoon(false);
+        setTimeRemainingText("Poofed!");
+        setIsPoofingSoon(false);
         return;
       }
       
       const percent = totalDuration > 0 ? Math.max(0, (timeLeft / totalDuration) * 100) : 0;
-      setIsFadingSoon(percent < 15 && percent > 0);
+      setIsPoofingSoon(percent < 15 && percent > 0);
 
       const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
       const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -97,7 +97,7 @@ function GroupListItem({ group }: GroupListItemProps) {
       } else if (timeLeft > 0) {
         setTimeRemainingText("<1m");
       } else {
-         setTimeRemainingText("Fading!");
+         setTimeRemainingText("Poofing!");
       }
     };
 
@@ -124,12 +124,12 @@ function GroupListItem({ group }: GroupListItemProps) {
           <p className="text-xs sm:text-sm text-muted-foreground truncate">{lastActivityDisplay}</p>
         </div>
         <div className="flex flex-col items-end text-right ml-2 flex-shrink-0 w-20 sm:w-24">
-          <span className={`text-xs sm:text-sm font-medium ${isFadingSoon && timeRemainingText !== "Faded!" ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`}>
+          <span className={`text-xs sm:text-sm font-medium ${isPoofingSoon && timeRemainingText !== "Poofed!" ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`}>
             {timeRemainingText}
           </span>
-          {isFadingSoon && timeRemainingText !== "Faded!" && (
+          {isPoofingSoon && timeRemainingText !== "Poofed!" && (
             <span className="text-xs text-destructive items-center flex gap-1">
-              <Clock className="h-3 w-3"/> Fading!
+              <Clock className="h-3 w-3"/> Poofing!
             </span>
            )}
         </div>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-muted-foreground">Manage your fadEM' groups or start a new one.</p>
+          <p className="text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
         <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
           <Button asChild size="lg" className="w-full sm:w-auto">
@@ -194,8 +194,8 @@ export default function DashboardPage() {
           <Info className="h-4 w-4" />
           <AlertTitle className="font-semibold">No Groups Yet!</AlertTitle>
           <AlertDescription>
-            You're not part of any fadEM' groups. Why not create one or join using an invite code?
-            fadEM' groups are temporary and will disappear after a set time.
+            You're not part of any Poof groups. Why not create one or join using an invite code?
+            Poof groups are temporary and will disappear after a set time.
           </AlertDescription>
         </Alert>
       ) : (
