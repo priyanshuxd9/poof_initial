@@ -231,9 +231,10 @@ export function CreateGroupForm() {
 
         <Button type="submit" className="w-full text-lg py-3" disabled={isPending || isAiLoading}>
           {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Users className="mr-2 h-5 w-5" />}
-          Create Poof Group
+          Create fadEM' Group
         </Button>
       </form>
     </Form>
   );
 }
+

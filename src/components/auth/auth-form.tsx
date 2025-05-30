@@ -57,7 +57,7 @@ export function AuthForm() {
       try {
         if (isSignUp) {
           await signUp(values.email, values.password, (values as z.infer<typeof signUpSchema>).username);
-          toast({ title: "Account Created", description: "Welcome to Poof! Redirecting..." });
+          toast({ title: "Account Created", description: "Welcome to fadEM'! Redirecting..." });
         } else {
           await signIn(values.email, values.password);
           toast({ title: "Signed In", description: "Welcome back! Redirecting..." });
@@ -78,7 +78,7 @@ export function AuthForm() {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <h2 className="text-2xl font-semibold text-center text-foreground">
-          {isSignUp ? "Create an Account" : "Sign In to Poof"}
+          {isSignUp ? "Create an Account" : "Sign In to fadEM'"}
         </h2>
         <FormField
           control={form.control}
@@ -161,3 +161,4 @@ export function AuthForm() {
     </Form>
   );
 }
+

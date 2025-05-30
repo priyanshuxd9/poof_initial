@@ -15,8 +15,9 @@ export function Logo({ className, iconSize = 32, textSize = "text-3xl" }: LogoPr
          <MessageSquareText size={iconSize * 0.7} className="text-primary-foreground" />
       </div>
       <h1 className={`font-bold ${textSize} text-foreground group-hover:text-accent transition-colors`}>
-        poof
+        fadEM'
       </h1>
     </Link>
   );
 }
+

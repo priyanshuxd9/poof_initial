@@ -16,9 +16,10 @@ export default function AuthLayout({
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
-          Poof! group chats that vanish without a trace.
+          fadEM' group chats that vanish without a trace.
         </p>
       </div>
     </div>
   );
 }
+

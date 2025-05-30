@@ -12,8 +12,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: 'Poof - Poof! Group Chats',
-  description: 'Create temporary group chats that poof! (self-destruct).',
+  title: 'fadEM\' - Group Chats that Fade Away',
+  description: 'Create temporary group chats that fadEM\' away (self-destruct).',
 };
 
 export default function RootLayout({
@@ -32,3 +32,4 @@ export default function RootLayout({
     </html>
   );
 }
+

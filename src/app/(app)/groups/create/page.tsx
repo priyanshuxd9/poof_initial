@@ -16,7 +16,7 @@ export default function CreateGroupPage() {
       </Button>
       <Card className="shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center tracking-tight">Start a New Poof Group</CardTitle>
+          <CardTitle className="text-3xl font-bold text-center tracking-tight">Start a New fadEM' Group</CardTitle>
           <CardDescription className="text-center text-md">
             Configure your temporary group. It will vanish after the set timer!
           </CardDescription>
@@ -28,3 +28,4 @@ export default function CreateGroupPage() {
     </div>
   );
 }
+
