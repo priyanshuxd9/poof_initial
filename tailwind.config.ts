@@ -70,6 +70,10 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+      boxShadow: {
+        'white-glow': '0 0 15px 2px rgba(255, 255, 255, 0.15)',
+        'white-glow-lg': '0 0 25px 5px rgba(255, 255, 255, 0.18)',
+      },
   		keyframes: {
   			'accordion-down': {
   				from: {
