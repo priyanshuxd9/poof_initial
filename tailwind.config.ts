@@ -71,8 +71,7 @@ export default {
   			sm: 'calc(var(--radius) - 4px)'
   		},
       boxShadow: {
-        'white-glow': '0 0 15px 2px rgba(255, 255, 255, 0.15)',
-        'white-glow-lg': '0 0 25px 5px rgba(255, 255, 255, 0.18)',
+        'white-form-shadow': '0 6px 18px rgba(255, 255, 255, 0.22)', // New white shadow for dark mode forms
       },
   		keyframes: {
   			'accordion-down': {
