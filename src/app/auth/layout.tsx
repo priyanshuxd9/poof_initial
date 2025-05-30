@@ -16,7 +16,7 @@ export default function AuthLayout({
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
-          Ephemeral group chats that vanish without a trace.
+          Poof! group chats that vanish without a trace.
         </p>
       </div>
     </div>

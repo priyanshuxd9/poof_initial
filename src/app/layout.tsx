@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Poppins } from 'next/font/google';
 import './globals.css';
@@ -11,8 +12,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: 'Poof - Ephemeral Group Chats',
-  description: 'Create temporary group chats that self-destruct.',
+  title: 'Poof - Poof! Group Chats',
+  description: 'Create temporary group chats that poof! (self-destruct).',
 };
 
 export default function RootLayout({
