@@ -8,6 +8,7 @@ import { MessageList, type ChatMessageData } from "@/components/chat/message-lis
 import { MessageInput } from "@/components/chat/message-input";
 import { useAuth } from "@/contexts/auth-context";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton"; // Added missing import
 
 // Mock group data fetching function
 async function fetchGroupDetails(groupId: string): Promise<ChatGroupHeaderInfo | null> {
@@ -139,3 +140,4 @@ export default function GroupChatPage() {
     </div>
   );
 }
+
