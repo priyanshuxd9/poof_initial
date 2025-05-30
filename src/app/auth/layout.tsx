@@ -16,10 +16,9 @@ export default function AuthLayout({
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
-          Poof: Create group chats that disappear like magic!
+          Poof: Create group chats that... well, <em>poof</em>! Gone like magic.
         </p>
       </div>
     </div>
   );
 }
-
