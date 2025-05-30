@@ -1,0 +1,64 @@
+
+"use client";
+
+import React, { useEffect, useRef } from "react";
+import { ChatMessage, type ChatMessageData } from "./chat-message";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface MessageListProps {
+  messages: ChatMessageData[];
+  isLoading?: boolean;
+}
+
+export function MessageList({ messages, isLoading = false }: MessageListProps) {
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (viewportRef.current) {
+      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className={`flex items-end gap-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+            {i % 2 === 0 && <Skeleton className="h-8 w-8 rounded-full" />}
+            <div className="flex flex-col gap-1">
+              <Skeleton className={`h-12 w-48 rounded-lg ${i % 2 === 0 ? 'rounded-bl-none' : 'rounded-br-none'}`} />
+              <Skeleton className="h-3 w-16 self-start" />
+            </div>
+            {i % 2 !== 0 && <Skeleton className="h-8 w-8 rounded-full" />}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  
+  if (messages.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+        <Image src="https://placehold.co/200x200.png" alt="Empty Chat" width={150} height={150} className="opacity-50 mb-4" data-ai-hint="empty chat illustration"/>
+        <h3 className="text-xl font-semibold text-foreground">It's quiet in here...</h3>
+        <p className="text-muted-foreground">Be the first to send a message in this Poof group!</p>
+      </div>
+    );
+  }
+
+
+  return (
+    <ScrollArea className="flex-1" ref={scrollAreaRef}>
+      <div className="p-4 space-y-2" ref={viewportRef}>
+        {messages.map((msg) => (
+          <ChatMessage key={msg.id} message={msg} />
+        ))}
+      </div>
+    </ScrollArea>
+  );
+}
+
+// Need to import Image for the empty state
+import Image from "next/image";
