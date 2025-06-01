@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { PlusCircle, LogIn, ListChecks, Info, Clock } from "lucide-react";
+import { PlusCircle, ListChecks, Info, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,8 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials, formatTimeAgo } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { JoinGroupDialog } from "@/components/groups/join-group-dialog"; // Import the new dialog
 
-// Group type definition (moved from group-card.tsx)
+// Group type definition
 export interface Group {
   id: string;
   name: string;
@@ -32,7 +33,7 @@ const mockGroupsData: Group[] = [
     description: "Planning epic weekend trips and sharing cool finds. Open to all thrill-seekers!",
     memberCount: 12,
     lastActivity: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    imageUrl: "https://placehold.co/600x338.png", // Will be used for Avatar, so smaller source is fine
+    imageUrl: "https://placehold.co/600x338.png",
     selfDestructAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days from now
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(), // Created 2 days ago
   },
@@ -183,9 +184,7 @@ export default function DashboardPage() {
               <PlusCircle className="mr-2 h-5 w-5" /> Create Group
             </Link>
           </Button>
-          <Button variant="outline" size="lg" className="w-full sm:w-auto">
-            <LogIn className="mr-2 h-5 w-5" /> Join with Code
-          </Button>
+          <JoinGroupDialog /> {/* Replace old button with the dialog component */}
         </div>
       </div>
 
@@ -214,4 +213,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

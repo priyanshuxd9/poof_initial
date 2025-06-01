@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useState } from "react"; // Consolidated React imports
+import React, { useEffect, useState } from "react"; 
 import { LogOut, UserCircle, Settings, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes"; 
 
@@ -43,7 +43,6 @@ export function AppHeader() {
     return name.substring(0, 2);
   };
 
-  // Determine effective theme for icon display, considering 'system'
   const effectiveTheme = theme === 'system' 
     ? (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') 
     : theme;
@@ -100,13 +99,17 @@ export function AppHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="w-full">
+                    <UserCircle className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="w-full">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
@@ -116,7 +119,7 @@ export function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-             isMounted && ( // Also ensure Sign In button respects isMounted if it were complex, though less critical here
+             isMounted && ( 
               <Button asChild>
                 <Link href="/auth/signin">Sign In</Link>
               </Button>
