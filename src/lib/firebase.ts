@@ -4,28 +4,24 @@ import { getAuth, type User as FirebaseUser } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// THIS IS A TEMPORARY DEBUGGING STEP. THE API KEY IS HARDCODED.
-const firebaseConfig = {
-  apiKey: "AIzaSyAfnPfSbgGE1JXc0Te0qZpIV1yFD_mENXE", // Hardcoded for debugging
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-};
-
-console.log("Attempting Firebase initialization with config:", firebaseConfig);
-
+// Function to get the initialized Firebase app
 function getInitializedFirebaseApp(): FirebaseApp {
   if (!getApps().length) {
+    const firebaseConfig = {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY, // Reverted to process.env
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+    };
+    console.log("Firebase Config Object:", firebaseConfig); // Keep this log for now
     try {
-      const newApp = initializeApp(firebaseConfig);
-      console.log("Firebase initialized successfully by initializeApp.");
-      return newApp;
+      return initializeApp(firebaseConfig);
     } catch (e) {
       console.error("Firebase initialization critical error:", e);
       console.error("Using config:", firebaseConfig);
-      throw e;
+      throw e; // Re-throw the error to halt execution if initialization fails
     }
   }
   return getApp();
@@ -38,17 +34,9 @@ const storage = getStorage(app);
 
 export { app, auth, db, storage };
 
+// This function is kept simple as getInitializedFirebaseApp handles the core logic.
 export const ensureFirebaseInitialized = (): FirebaseApp => {
-  if (!getApps().length) {
-    console.warn("ensureFirebaseInitialized called when no apps were found, re-initializing.");
-    try {
-      return initializeApp(firebaseConfig);
-    } catch (error) {
-      console.error("Firebase initialization error in ensureFirebaseInitialized:", error);
-      throw error;
-    }
-  }
-  return getApp();
+  return getInitializedFirebaseApp();
 };
 
 export const checkUsernameUnique = async (username: string): Promise<boolean> => {
