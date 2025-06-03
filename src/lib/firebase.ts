@@ -13,20 +13,23 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Initialize Firebase
+// Log the config object to verify environment variables
+console.log("Firebase Config Object:", firebaseConfig);
+
 function getInitializedFirebaseApp(): FirebaseApp {
   if (!getApps().length) {
     try {
-      console.log("Attempting Firebase initialization..."); // Log from a previous step
+      console.log("Attempting Firebase initialization with config:", firebaseConfig);
       const newApp = initializeApp(firebaseConfig);
-      console.log("Firebase initialized successfully by initializeApp."); // Log from a previous step
+      console.log("Firebase initialized successfully by initializeApp.");
       return newApp;
     } catch (e) {
       console.error("Firebase initialization critical error:", e);
+      console.error("Using config:", firebaseConfig); // Log config on error
       throw e;
     }
   }
-  console.log("Firebase app already initialized, getting existing app."); // Log from a previous step
+  // console.log("Firebase app already initialized, getting existing app.");
   return getApp();
 }
 
@@ -51,13 +54,13 @@ export const ensureFirebaseInitialized = (): FirebaseApp => {
 };
 
 export const checkUsernameUnique = async (username: string): Promise<boolean> => {
-  // ensureFirebaseInitialized(); // Redundant if app is initialized globally
-  console.log("--- checkUsernameUnique CALLED for username:", username); // Log from a previous step
+  ensureFirebaseInitialized();
+  console.log("--- checkUsernameUnique CALLED for username:", username);
   try {
     const usernamesRef = collection(db, "usernames");
     const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
     const querySnapshot = await getDocs(q);
-    console.log("--- checkUsernameUnique querySnapshot empty:", querySnapshot.empty); // Log from a previous step
+    console.log("--- checkUsernameUnique querySnapshot empty:", querySnapshot.empty);
     return querySnapshot.empty;
   } catch (error) {
     console.error("--- checkUsernameUnique Firestore Error:", error);
@@ -66,8 +69,8 @@ export const checkUsernameUnique = async (username: string): Promise<boolean> =>
 };
 
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
-  // ensureFirebaseInitialized(); // Redundant
-  console.log("--- saveUserToFirestore CALLED ---"); // Log from a previous step
+  ensureFirebaseInitialized();
+  console.log("--- saveUserToFirestore CALLED ---");
   console.log("User object (FirebaseUser from Auth):", JSON.stringify(user, null, 2));
   console.log("Username parameter to save:", username);
 
