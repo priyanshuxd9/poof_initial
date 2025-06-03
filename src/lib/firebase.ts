@@ -13,22 +13,25 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-let app: FirebaseApp;
-
-// Initialize Firebase
-if (!getApps().length) {
-  try {
-    app = initializeApp(firebaseConfig);
-    console.log("Firebase initialized successfully.");
-  } catch (e) {
-    console.error("Firebase initialization error:", e);
-    // Potentially throw the error or handle it as appropriate for your app
+// Helper function to initialize Firebase and return the app instance
+const initializeFirebaseApp = (): FirebaseApp => {
+  if (getApps().length) {
+    console.log("Firebase app already initialized.");
+    return getApp();
   }
-} else {
-  app = getApp();
-  console.log("Firebase app already initialized.");
-}
+  try {
+    const newApp = initializeApp(firebaseConfig);
+    console.log("Firebase initialized successfully.");
+    return newApp;
+  } catch (e) {
+    console.error("Firebase initialization critical error:", e);
+    // If initialization fails, the application cannot proceed with Firebase services.
+    // Re-throwing the error makes it clear that initialization failed.
+    throw e;
+  }
+};
 
+const app: FirebaseApp = initializeFirebaseApp();
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -36,21 +39,26 @@ const storage = getStorage(app);
 
 export { app, auth, db, storage };
 
-export const ensureFirebaseInitialized = () => {
-  // This function is somewhat redundant now with the initialization logic above,
-  // but keeping it in case it's called from multiple places expecting a check.
+export const ensureFirebaseInitialized = (): FirebaseApp => {
+  // This function can now simply return the already initialized app
+  // or rely on the top-level initialization.
+  // For consistency and to ensure it's always called if needed elsewhere:
   if (!getApps().length) {
+    // This case should ideally not be hit if the top-level 'app' is always initialized.
+    // However, keeping it for safety if called independently before top-level const app is ready.
     try {
-      initializeApp(firebaseConfig);
       console.log("Firebase (re)initialized by ensureFirebaseInitialized.");
+      return initializeApp(firebaseConfig);
     } catch (error) {
       console.error("Firebase initialization error in ensureFirebaseInitialized:", error);
+      throw error;
     }
   }
+  return getApp();
 };
 
 export const checkUsernameUnique = async (username: string): Promise<boolean> => {
-  ensureFirebaseInitialized(); // Make sure Firebase is up
+  ensureFirebaseInitialized(); // Ensures db is available
   console.log("--- checkUsernameUnique CALLED for username:", username.toLowerCase());
   try {
     const usernamesRef = collection(db, "usernames");
@@ -65,7 +73,7 @@ export const checkUsernameUnique = async (username: string): Promise<boolean> =>
 };
 
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
-  ensureFirebaseInitialized(); // Make sure Firebase is up
+  ensureFirebaseInitialized(); // Ensures db is available
   console.log("--- saveUserToFirestore CALLED ---");
   console.log("User object (FirebaseUser from Auth):", JSON.stringify(user, null, 2));
   console.log("Username parameter to save:", username);
@@ -91,9 +99,8 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
 
   const usernameData = {
     uid: user.uid,
-    username: username, // Storing the original casing as it was entered
+    username: username,
   };
-  // Document ID in 'usernames' collection is lowercase for case-insensitive check
   const lowercaseUsername = username.toLowerCase();
   console.log("Attempting to write to 'usernames' collection with path:", `/usernames/${lowercaseUsername}`);
   console.log("Data for 'usernames' collection:", JSON.stringify(usernameData, null, 2));
