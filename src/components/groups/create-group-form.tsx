@@ -142,10 +142,10 @@ export function CreateGroupForm() {
   };
 
   const onSubmit = (values: CreateGroupFormValues) => {
-    if (!user) {
+    if (!user || !user.uid) { // More robust check
       toast({
         title: "Authentication Error",
-        description: "You must be logged in to create a group.",
+        description: "User data is incomplete or you are not properly logged in. Please try logging in again.",
         variant: "destructive",
       });
       return;
@@ -155,6 +155,7 @@ export function CreateGroupForm() {
       try {
         const inviteCode = generateInviteCode();
         const groupData = { ...values, inviteCode };
+        // At this point, user and user.uid should be valid
         const group = await createGroupInFirestore(groupData, user.uid); 
         
         toast({
@@ -275,6 +276,4 @@ export function CreateGroupForm() {
     </Form>
   );
 }
-
-
     
