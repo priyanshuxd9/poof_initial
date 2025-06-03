@@ -4,8 +4,9 @@ import { getAuth, type User as FirebaseUser } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+// THIS IS A TEMPORARY DEBUGGING STEP. THE API KEY IS HARDCODED.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  apiKey: "AIzaSyAfnPfSbgGE1JXc0Te0qZpIV1yFD_mENXE", // Hardcoded for debugging
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
@@ -13,23 +14,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Log the config object to verify environment variables
-console.log("Firebase Config Object:", firebaseConfig);
+console.log("Attempting Firebase initialization with config:", firebaseConfig);
 
 function getInitializedFirebaseApp(): FirebaseApp {
   if (!getApps().length) {
     try {
-      console.log("Attempting Firebase initialization with config:", firebaseConfig);
       const newApp = initializeApp(firebaseConfig);
       console.log("Firebase initialized successfully by initializeApp.");
       return newApp;
     } catch (e) {
       console.error("Firebase initialization critical error:", e);
-      console.error("Using config:", firebaseConfig); // Log config on error
+      console.error("Using config:", firebaseConfig);
       throw e;
     }
   }
-  // console.log("Firebase app already initialized, getting existing app.");
   return getApp();
 }
 
