@@ -5,12 +5,12 @@ import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, s
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAfnPfSbgGE1JXcOTe0qZpIVlyFD_mENXE",
+  authDomain: "poof-g7bev.firebaseapp.com",
+  projectId: "poof-g7bev",
+  storageBucket: "poof-g7bev.firebasestorage.app",
+  messagingSenderId: "268606847310",
+  appId: "1:268606847310:web:5399a15965eb864de0461f"
 };
 
 let app: FirebaseApp;
@@ -47,20 +47,31 @@ export const checkUsernameUnique = async (username: string): Promise<boolean> =>
 };
 
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
-  ensureFirebaseInitialized();
-  const userDocRef = doc(db, "users", user.uid);
-  await setDoc(userDocRef, {
+  ensureFirebaseInitialized(); // This ensures 'db' is initialized
+
+  const userData = {
     uid: user.uid,
     email: user.email,
-    username: username, // Store the username with its original casing
+    username: username,
     photoURL: user.photoURL,
     createdAt: serverTimestamp(),
-  });
+  };
+  console.log("Attempting to write to 'users' collection:", `/users/${user.uid}`, JSON.stringify(userData, null, 2));
+  const userDocRef = doc(db, "users", user.uid);
+  await setDoc(userDocRef, userData)
+    .then(() => console.log("Successfully wrote to 'users' collection."))
+    .catch(error => console.error("Error writing to 'users' collection:", error));
 
-  // Store a document for quick username uniqueness checks using lowercase username
-  const usernameDocRef = doc(db, "usernames", username.toLowerCase());
-  await setDoc(usernameDocRef, {
+
+  const usernameData = {
     uid: user.uid,
-    username: username // Store original casing here if needed for display, or just uid
-  });
+    username: username, // Storing original username for potential display, rule checks uid
+  };
+  const lowercaseUsername = username.toLowerCase();
+  console.log("Attempting to write to 'usernames' collection:", `/usernames/${lowercaseUsername}`, JSON.stringify(usernameData, null, 2));
+  const usernameDocRef = doc(db, "usernames", lowercaseUsername);
+  await setDoc(usernameDocRef, usernameData)
+    .then(() => console.log("Successfully wrote to 'usernames' collection."))
+    .catch(error => console.error("Error writing to 'usernames' collection:", error));
 };
+
