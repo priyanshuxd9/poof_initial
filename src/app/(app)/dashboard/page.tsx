@@ -11,7 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials, formatTimeAgo } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { JoinGroupDialog } from "@/components/groups/join-group-dialog"; // Import the new dialog
+import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 
 // Group type definition
 export interface Group {
@@ -19,45 +21,11 @@ export interface Group {
   name: string;
   description: string;
   memberCount: number;
-  lastActivity?: string | Date;
+  lastActivity?: string | Date; // Firestore Timestamp will be converted to ISO string
   imageUrl?: string;
-  selfDestructAt: string | Date;
-  createdAt: string | Date;
+  selfDestructAt: string | Date; // Firestore Timestamp will be converted to ISO string
+  createdAt: string | Date; // Firestore Timestamp will be converted to ISO string
 }
-
-// Mock data for groups - replace with actual data fetching
-const mockGroupsData: Group[] = [
-  {
-    id: "1",
-    name: "Weekend Adventurers",
-    description: "Planning epic weekend trips and sharing cool finds. Open to all thrill-seekers!",
-    memberCount: 12,
-    lastActivity: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    imageUrl: "https://placehold.co/600x338.png",
-    selfDestructAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days from now
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(), // Created 2 days ago
-  },
-  {
-    id: "2",
-    name: "Project Poof Planning",
-    description: "Internal discussion for the Poof app development. Next deadline: UI freeze.",
-    memberCount: 5,
-    lastActivity: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-    imageUrl: "https://placehold.co/600x338.png",
-    selfDestructAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1).toISOString(), // 1 day from now
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 29).toISOString(), // Created 29 days ago
-  },
-    {
-    id: "3",
-    name: "Book Club Readers",
-    description: "Discussing the latest sci-fi novel and classic literature. Spoilers allowed!",
-    memberCount: 25,
-    lastActivity: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(), // 1 day ago
-    imageUrl: "https://placehold.co/600x338.png",
-    selfDestructAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15).toISOString(), // 15 days from now
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), // Created 5 days ago
-  },
-];
 
 interface GroupListItemProps {
   group: Group;
@@ -140,12 +108,51 @@ function GroupListItem({ group }: GroupListItemProps) {
 }
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
-  // TODO: Fetch actual groups for the user
-  const groups = [...mockGroupsData].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const { user, loading: authLoading } = useAuth();
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      if (!user || !user.uid) {
+        setIsLoadingGroups(false);
+        setGroups([]); // Clear groups if no user
+        return;
+      }
+      setIsLoadingGroups(true);
+      try {
+        const groupsRef = collection(db, "groups");
+        const q = query(groupsRef, where("memberUserIds", "array-contains", user.uid), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        const fetchedGroups: Group[] = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            memberCount: data.memberUserIds?.length || 0,
+            lastActivity: data.lastActivity ? (data.lastActivity as Timestamp).toDate().toISOString() : new Date().toISOString(),
+            imageUrl: data.imageUrl,
+            selfDestructAt: (data.selfDestructAt as Timestamp).toDate().toISOString(),
+            createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+          };
+        });
+        setGroups(fetchedGroups);
+      } catch (error) {
+        console.error("Error fetching groups:", error);
+        // Potentially set an error state here to show to the user
+      } finally {
+        setIsLoadingGroups(false);
+      }
+    };
+
+    if (!authLoading) { // Only fetch if auth state is resolved
+      fetchGroups();
+    }
+  }, [user, authLoading]);
 
 
-  if (loading) {
+  if (authLoading || isLoadingGroups) {
     return (
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
@@ -184,7 +191,7 @@ export default function DashboardPage() {
               <PlusCircle className="mr-2 h-5 w-5" /> Create Group
             </Link>
           </Button>
-          <JoinGroupDialog /> {/* Replace old button with the dialog component */}
+          <JoinGroupDialog />
         </div>
       </div>
 
@@ -213,3 +220,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
