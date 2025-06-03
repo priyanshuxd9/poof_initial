@@ -13,27 +13,24 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Log the config to verify environment variables are loaded correctly
-console.log("Firebase Config Object:", firebaseConfig);
-
-let app: FirebaseApp;
-
-if (!getApps().length) {
-  try {
-    app = initializeApp(firebaseConfig);
-    console.log("Firebase initialized successfully by initializeApp.");
-  } catch (e) {
-    console.error("Firebase initialization critical error:", e);
-    // It's important to handle this error state, perhaps by setting app to a state that indicates failure
-    // For now, re-throwing might be too disruptive if other parts of the app don't depend on Firebase immediately.
-    // However, auth will fail.
-    throw e; // Re-throw to make it clear initialization failed
+// Initialize Firebase
+function getInitializedFirebaseApp(): FirebaseApp {
+  if (!getApps().length) {
+    try {
+      console.log("Attempting Firebase initialization..."); // Log from a previous step
+      const newApp = initializeApp(firebaseConfig);
+      console.log("Firebase initialized successfully by initializeApp."); // Log from a previous step
+      return newApp;
+    } catch (e) {
+      console.error("Firebase initialization critical error:", e);
+      throw e;
+    }
   }
-} else {
-  app = getApp();
-  console.log("Firebase app already initialized, getting existing app.");
+  console.log("Firebase app already initialized, getting existing app."); // Log from a previous step
+  return getApp();
 }
 
+const app: FirebaseApp = getInitializedFirebaseApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -42,7 +39,6 @@ export { app, auth, db, storage };
 
 export const ensureFirebaseInitialized = (): FirebaseApp => {
   if (!getApps().length) {
-    // This path should ideally not be taken if the top-level initialization logic is correct.
     console.warn("ensureFirebaseInitialized called when no apps were found, re-initializing.");
     try {
       return initializeApp(firebaseConfig);
@@ -55,13 +51,13 @@ export const ensureFirebaseInitialized = (): FirebaseApp => {
 };
 
 export const checkUsernameUnique = async (username: string): Promise<boolean> => {
-  // ensureFirebaseInitialized(); // db should be initialized globally
-  console.log("--- checkUsernameUnique CALLED for username:", username);
+  // ensureFirebaseInitialized(); // Redundant if app is initialized globally
+  console.log("--- checkUsernameUnique CALLED for username:", username); // Log from a previous step
   try {
     const usernamesRef = collection(db, "usernames");
     const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
     const querySnapshot = await getDocs(q);
-    console.log("--- checkUsernameUnique querySnapshot empty:", querySnapshot.empty);
+    console.log("--- checkUsernameUnique querySnapshot empty:", querySnapshot.empty); // Log from a previous step
     return querySnapshot.empty;
   } catch (error) {
     console.error("--- checkUsernameUnique Firestore Error:", error);
@@ -70,8 +66,8 @@ export const checkUsernameUnique = async (username: string): Promise<boolean> =>
 };
 
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
-  // ensureFirebaseInitialized(); // db should be initialized globally
-  console.log("--- saveUserToFirestore CALLED ---");
+  // ensureFirebaseInitialized(); // Redundant
+  console.log("--- saveUserToFirestore CALLED ---"); // Log from a previous step
   console.log("User object (FirebaseUser from Auth):", JSON.stringify(user, null, 2));
   console.log("Username parameter to save:", username);
 
