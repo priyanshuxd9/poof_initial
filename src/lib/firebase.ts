@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type User as FirebaseUser } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
@@ -48,26 +47,26 @@ export const checkUsernameUnique = async (username: string): Promise<boolean> =>
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
   ensureFirebaseInitialized();
   console.log("--- saveUserToFirestore CALLED ---");
-  console.log("User object:", JSON.stringify(user, null, 2));
-  console.log("Username parameter:", username);
+  console.log("User object (FirebaseUser from Auth):", JSON.stringify(user, null, 2));
+  console.log("Username parameter to save:", username);
 
   const userData = {
     uid: user.uid,
-    email: user.email,
+    email: user.email || null, // Handle potentially null/undefined email
     username: username,
-    photoURL: user.photoURL,
+    photoURL: user.photoURL || null, // Handle potentially null/undefined photoURL
     createdAt: serverTimestamp(),
   };
   console.log("Attempting to write to 'users' collection with path:", `/users/${user.uid}`);
   console.log("Data for 'users' collection:", JSON.stringify(userData, null, 2));
   const userDocRef = doc(db, "users", user.uid);
-  
+
   try {
     await setDoc(userDocRef, userData);
     console.log("Successfully wrote to 'users' collection for UID:", user.uid);
   } catch (error) {
     console.error("Error writing to 'users' collection for UID:", user.uid, error);
-    throw error; // Re-throw the error to be caught by the calling function
+    throw error; // Re-throw to be caught by calling function
   }
 
   const usernameData = {
@@ -84,7 +83,7 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
     console.log("Successfully wrote to 'usernames' collection for username:", lowercaseUsername);
   } catch (error) {
     console.error("Error writing to 'usernames' collection for username:", lowercaseUsername, error);
-    throw error; // Re-throw the error
+    throw error; // Re-throw
   }
   console.log("--- saveUserToFirestore COMPLETED ---");
 };
