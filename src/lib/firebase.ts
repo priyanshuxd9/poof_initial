@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type User as FirebaseUser } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
@@ -14,11 +15,20 @@ const firebaseConfig = {
 
 let app: FirebaseApp;
 
+// Initialize Firebase
 if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
+  try {
+    app = initializeApp(firebaseConfig);
+    console.log("Firebase initialized successfully.");
+  } catch (e) {
+    console.error("Firebase initialization error:", e);
+    // Potentially throw the error or handle it as appropriate for your app
+  }
 } else {
   app = getApp();
+  console.log("Firebase app already initialized.");
 }
+
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -27,34 +37,44 @@ const storage = getStorage(app);
 export { app, auth, db, storage };
 
 export const ensureFirebaseInitialized = () => {
+  // This function is somewhat redundant now with the initialization logic above,
+  // but keeping it in case it's called from multiple places expecting a check.
   if (!getApps().length) {
     try {
       initializeApp(firebaseConfig);
+      console.log("Firebase (re)initialized by ensureFirebaseInitialized.");
     } catch (error) {
-      console.error("Firebase initialization error:", error);
+      console.error("Firebase initialization error in ensureFirebaseInitialized:", error);
     }
   }
 };
 
 export const checkUsernameUnique = async (username: string): Promise<boolean> => {
-  ensureFirebaseInitialized();
-  const usernamesRef = collection(db, "usernames");
-  const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.empty;
+  ensureFirebaseInitialized(); // Make sure Firebase is up
+  console.log("--- checkUsernameUnique CALLED for username:", username.toLowerCase());
+  try {
+    const usernamesRef = collection(db, "usernames");
+    const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
+    const querySnapshot = await getDocs(q);
+    console.log("--- checkUsernameUnique querySnapshot empty:", querySnapshot.empty);
+    return querySnapshot.empty;
+  } catch (error) {
+    console.error("--- checkUsernameUnique Firestore Error:", error);
+    throw error; // Re-throw to be caught by calling function
+  }
 };
 
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
-  ensureFirebaseInitialized();
+  ensureFirebaseInitialized(); // Make sure Firebase is up
   console.log("--- saveUserToFirestore CALLED ---");
   console.log("User object (FirebaseUser from Auth):", JSON.stringify(user, null, 2));
   console.log("Username parameter to save:", username);
 
   const userData = {
     uid: user.uid,
-    email: user.email || null, // Handle potentially null/undefined email
+    email: user.email || null,
     username: username,
-    photoURL: user.photoURL || null, // Handle potentially null/undefined photoURL
+    photoURL: user.photoURL || null,
     createdAt: serverTimestamp(),
   };
   console.log("Attempting to write to 'users' collection with path:", `/users/${user.uid}`);
@@ -66,13 +86,14 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
     console.log("Successfully wrote to 'users' collection for UID:", user.uid);
   } catch (error) {
     console.error("Error writing to 'users' collection for UID:", user.uid, error);
-    throw error; // Re-throw to be caught by calling function
+    throw error;
   }
 
   const usernameData = {
     uid: user.uid,
-    username: username,
+    username: username, // Storing the original casing as it was entered
   };
+  // Document ID in 'usernames' collection is lowercase for case-insensitive check
   const lowercaseUsername = username.toLowerCase();
   console.log("Attempting to write to 'usernames' collection with path:", `/usernames/${lowercaseUsername}`);
   console.log("Data for 'usernames' collection:", JSON.stringify(usernameData, null, 2));
@@ -83,7 +104,7 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
     console.log("Successfully wrote to 'usernames' collection for username:", lowercaseUsername);
   } catch (error) {
     console.error("Error writing to 'usernames' collection for username:", lowercaseUsername, error);
-    throw error; // Re-throw
+    throw error;
   }
   console.log("--- saveUserToFirestore COMPLETED ---");
 };
