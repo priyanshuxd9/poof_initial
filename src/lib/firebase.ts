@@ -1,8 +1,8 @@
-// TODO: Replace with your actual Firebase configuration
-// import { initializeApp, getApps, getApp } from "firebase/app";
-// import { getAuth } from "firebase/auth";
-// import { getFirestore } from "firebase/firestore";
-// import { getStorage } from "firebase/storage";
+
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type User as FirebaseUser } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,63 +13,54 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-// const auth = getAuth(app);
-// const db = getFirestore(app);
-// const storage = getStorage(app);
+let app: FirebaseApp;
 
-// export { app, auth, db, storage };
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
 
-// Mock implementation for scaffolding
-export const auth = {
-  onAuthStateChanged: (callback: (user: any) => void) => {
-    // Simulate an unauthenticated user initially
-    setTimeout(() => callback(null), 100);
-    return () => {}; // Unsubscribe function
-  },
-  signInWithEmailAndPassword: async (email?: string, password?: string) => {
-    if (email === 'test@example.com' && password === 'password') {
-      return { user: { uid: '123', email: 'test@example.com', displayName: 'TestUser' } };
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+export { app, auth, db, storage };
+
+export const ensureFirebaseInitialized = () => {
+  if (!getApps().length) {
+    try {
+      initializeApp(firebaseConfig);
+    } catch (error) {
+      console.error("Firebase initialization error:", error);
     }
-    throw new Error('Invalid credentials');
-  },
-  createUserWithEmailAndPassword: async (email?: string, password?: string) => {
-     if (email && password) {
-        return { user: { uid: '123', email, displayName: email.split('@')[0] } };
-     }
-     throw new Error('Failed to create user');
-  },
-  updateProfile: async (user: any, profile: any) => {
-    // Mock profile update
-    return Promise.resolve();
-  },
-  signOut: async () => {
-    // Mock sign out
-    return Promise.resolve();
   }
 };
 
-export const db = {}; // Mock Firestore
-export const storage = {}; // Mock Storage
-
-export const ensureFirebaseInitialized = () => {
-  // This function would normally ensure Firebase is initialized.
-  // For this scaffold, it does nothing.
-};
-
-// Helper to simulate checking username uniqueness
 export const checkUsernameUnique = async (username: string): Promise<boolean> => {
-  // In a real app, this would query Firestore:
-  // const usernameDoc = await getDoc(doc(db, "usernames", username));
-  // return !usernameDoc.exists();
-  console.log(`Checking username uniqueness for: ${username}`);
-  return !['testuser', 'admin'].includes(username.toLowerCase()); // Mock some taken usernames
+  ensureFirebaseInitialized();
+  const usernamesRef = collection(db, "usernames");
+  // Check against the lowercase version of the username to ensure case-insensitivity for uniqueness
+  const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.empty;
 };
 
-// Helper to simulate saving user data
-export const saveUserToFirestore = async (user: any, username: string) => {
-  // In a real app, this would write to Firestore:
-  // await setDoc(doc(db, "users", user.uid), { email: user.email, username, createdAt: serverTimestamp() });
-  // await setDoc(doc(db, "usernames", username), { userId: user.uid });
-  console.log(`Saving user ${user.uid} with username ${username} to Firestore`);
+export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
+  ensureFirebaseInitialized();
+  const userDocRef = doc(db, "users", user.uid);
+  await setDoc(userDocRef, {
+    uid: user.uid,
+    email: user.email,
+    username: username, // Store the username with its original casing
+    photoURL: user.photoURL,
+    createdAt: serverTimestamp(),
+  });
+
+  // Store a document for quick username uniqueness checks using lowercase username
+  const usernameDocRef = doc(db, "usernames", username.toLowerCase());
+  await setDoc(usernameDocRef, {
+    uid: user.uid,
+    username: username // Store original casing here if needed for display, or just uid
+  });
 };

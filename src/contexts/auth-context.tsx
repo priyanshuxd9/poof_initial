@@ -1,9 +1,11 @@
 
 "use client";
 
-import type { User as FirebaseUser } from 'firebase/auth'; // Using Firebase type for compatibility
+import type { User as FirebaseUser } from 'firebase/auth';
+import { updateProfile } from 'firebase/auth'; // Import updateProfile
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique } from '@/lib/firebase'; // Using mock auth
+import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique, db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 export interface User extends FirebaseUser {
@@ -26,11 +28,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    ensureFirebaseInitialized(); // Ensure Firebase is initialized (mocked)
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser: FirebaseUser | null) => {
+    ensureFirebaseInitialized();
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // In a real app, you might fetch additional user data (like username) from Firestore here
-        setUser({ ...firebaseUser, username: (firebaseUser as any).displayName || firebaseUser.email?.split('@')[0] });
+        // Attempt to fetch username from Firestore as the canonical source
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        let appUsername = firebaseUser.displayName; // Fallback to displayName
+
+        if (userDocSnap.exists()) {
+          appUsername = userDocSnap.data().username || appUsername;
+        }
+        setUser({ ...firebaseUser, username: appUsername || undefined });
       } else {
         setUser(null);
       }
@@ -42,9 +51,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signIn = async (email?: string, password?: string) => {
     setLoading(true);
     try {
-      const userCredential = await auth.signInWithEmailAndPassword(email, password);
+      const userCredential = await auth.signInWithEmailAndPassword(email!, password!);
       if (userCredential.user) {
-        setUser({ ...userCredential.user, username: (userCredential.user as any).displayName || userCredential.user.email?.split('@')[0]});
+        const firebaseUser = userCredential.user;
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        let appUsername = firebaseUser.displayName;
+
+        if (userDocSnap.exists()) {
+          appUsername = userDocSnap.data().username || appUsername;
+        }
+        setUser({ ...firebaseUser, username: appUsername || undefined });
       }
     } catch (error) {
       console.error("Sign in error:", error);
@@ -60,6 +77,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
       throw new Error("Username is required.");
     }
+    if (!email || !password) {
+      setLoading(false);
+      throw new Error("Email and password are required.");
+    }
     try {
       const isUsernameUnique = await checkUsernameUnique(username);
       if (!isUsernameUnique) {
@@ -69,9 +90,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userCredential = await auth.createUserWithEmailAndPassword(email, password);
       const firebaseUser = userCredential.user;
       if (firebaseUser) {
-        await auth.updateProfile(firebaseUser, { displayName: username });
-        await saveUserToFirestore(firebaseUser, username); // Save additional user data
-        setUser({ ...firebaseUser, username });
+        // Update Firebase Auth profile's displayName
+        await updateProfile(firebaseUser, { displayName: username });
+        // Save user details (including canonical username) to Firestore
+        await saveUserToFirestore(firebaseUser, username);
+        setUser({ ...firebaseUser, username }); // Set context user with username from form
       }
     } catch (error) {
       console.error("Sign up error:", error);
