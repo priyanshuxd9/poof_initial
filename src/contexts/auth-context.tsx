@@ -2,7 +2,8 @@
 "use client";
 
 import type { User as FirebaseUser } from 'firebase/auth';
-import { updateProfile } from 'firebase/auth'; // Import updateProfile
+// Import the specific authentication functions from firebase/auth
+import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -31,10 +32,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     ensureFirebaseInitialized();
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // Attempt to fetch username from Firestore as the canonical source
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const userDocSnap = await getDoc(userDocRef);
-        let appUsername = firebaseUser.displayName; // Fallback to displayName
+        let appUsername = firebaseUser.displayName;
 
         if (userDocSnap.exists()) {
           appUsername = userDocSnap.data().username || appUsername;
@@ -50,8 +50,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email?: string, password?: string) => {
     setLoading(true);
+    if (!email || !password) {
+      setLoading(false);
+      throw new Error("Email and password are required.");
+    }
     try {
-      const userCredential = await auth.signInWithEmailAndPassword(email!, password!);
+      // Corrected: Call signInWithEmailAndPassword as a top-level function
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       if (userCredential.user) {
         const firebaseUser = userCredential.user;
         const userDocRef = doc(db, "users", firebaseUser.uid);
@@ -87,14 +92,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error("Username is already taken.");
       }
 
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      // Corrected: Call createUserWithEmailAndPassword as a top-level function
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       if (firebaseUser) {
-        // Update Firebase Auth profile's displayName
         await updateProfile(firebaseUser, { displayName: username });
-        // Save user details (including canonical username) to Firestore
         await saveUserToFirestore(firebaseUser, username);
-        setUser({ ...firebaseUser, username }); // Set context user with username from form
+        setUser({ ...firebaseUser, username });
       }
     } catch (error) {
       console.error("Sign up error:", error);
@@ -107,7 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     setLoading(true);
     try {
-      await auth.signOut();
+      await auth.signOut(); // auth.signOut() is correct for v9
       setUser(null);
       router.push('/auth/signin');
     } catch (error) {
