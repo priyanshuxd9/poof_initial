@@ -4,97 +4,99 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global Helper: Is the user authenticated?
+    // Helper Functions (Global)
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Global Helper: Is the request from the owner of the document?
-    // (Assumes document has an 'ownerId' field)
-    function isOwner(docData) {
-      return isAuthenticated() && request.auth.uid == docData.ownerId;
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Global Helper: Is the request for the user's own document?
-    // (Used for /users/{userId} style paths)
     function isUser(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Helper function to check if only specific fields are being written during a create operation
-    function onlyTheseFieldsAreWritten(allowedFields) {
-      return request.resource.data.keys().hasOnly(allowedFields);
-    }
-
-
-    // Rules for the 'users' collection
+    // Users Collection
+    // Stores public user data like username, photoURL
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isUser(userId) &&
-                       onlyTheseFieldsAreWritten(['uid', 'email', 'username', 'photoURL', 'createdAt']) &&
                        request.resource.data.uid == userId &&
-                       request.resource.data.username.size() > 0;
-      allow update: if isUser(userId); // Allow users to update their own profile
-      allow delete: if false; // Prevent accidental deletion
+                       request.resource.data.username is string &&
+                       request.resource.data.username.size() > 0 &&
+                       (request.resource.data.email == request.auth.token.email || request.resource.data.email == null) &&
+                       (request.resource.data.photoURL == null || request.resource.data.photoURL is string) &&
+                       request.resource.data.createdAt == request.time;
+      allow update: if isUser(userId) &&
+                       (request.resource.data.photoURL == null || request.resource.data.photoURL is string) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL']); // Allow updating only photoURL for now
+      allow delete: if false; // Users cannot delete their own user documents directly
     }
 
-    // Rules for the 'usernames' collection (to ensure username uniqueness)
+    // Usernames Collection
+    // Ensures username uniqueness. Document ID is the lowercase username.
     match /usernames/{username} {
-      allow read: if isAuthenticated(); // Allow checking for username existence
+      allow read: if isAuthenticated(); // Anyone can check if a username exists
       allow create: if isAuthenticated() &&
-                       request.resource.data.uid == request.auth.uid && // User can only create their own username entry
-                       request.resource.data.username == username && // Username in doc matches path
-                       onlyTheseFieldsAreWritten(['uid', 'username']);
-      allow update, delete: if false; // Prevent modification or deletion
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.username == username && // username in doc matches doc id
+                       request.resource.data.keys().hasOnly(['uid', 'username']);
+      allow update: if false;
+      allow delete: if false;
     }
 
-    // Rules for the 'groups' collection
+    // Groups Collection
     match /groups/{groupId} {
-
-      // Group-specific helper: Is the user a member of this specific group?
-      // (Uses 'resource.data' for existing doc, or 'request.resource.data' for incoming doc)
-      function isGroupMember(groupData, userId) {
-        return groupData.memberUserIds.hasAny([userId]);
+      // Helper: Check if a group is still active (not past its self-destruct time)
+      function groupIsActive(selfDestructTimestamp) {
+        return selfDestructTimestamp > request.time;
       }
 
-      // Group-specific helper: Is the group currently active (not past its self-destruct time)?
-      function isGroupActive(groupData) {
-        return groupData.selfDestructAt > request.time;
+      // Helper: Check if the requesting user is a member of the group (using existing resource data)
+      function isCurrentGroupMember(memberList) {
+        return request.auth.uid in memberList; // Correct for existing resource.data.memberUserIds which is a list
+      }
+       // Helper: Check if the user (passed by ID) is already in the provided member list
+      function isUserInMemberList(memberList, userId) {
+        return memberList.hasAny([userId]); // Corrected: use hasAny for lists
       }
 
-      // Group-specific helper: Is the request trying to add the current user as a new member correctly?
-      function isAddingSelfAsNewMember(newGroupData, oldGroupData, userId) {
-        return newGroupData.memberUserIds == oldGroupData.memberUserIds.concat([userId]);
+      // Helper: Check if the incoming update is adding the authenticated user as a new member
+      function isAddingSelfAsNewMember(oldMemberList, newMemberList, userIdToAdd) {
+        return newMemberList.size() == oldMemberList.size() + 1 &&
+               newMemberList.hasAll(oldMemberList) &&    // All old members are still there
+               newMemberList.hasAny([userIdToAdd]);         // The new user is in the new list
       }
 
-      allow read: if isAuthenticated() && isGroupMember(resource.data, request.auth.uid);
+      allow read: if isAuthenticated() && isUserInMemberList(resource.data.memberUserIds, request.auth.uid);
 
       allow create: if isAuthenticated() &&
                        request.resource.data.ownerId == request.auth.uid &&
                        request.resource.data.memberUserIds == [request.auth.uid] &&
-                       request.resource.data.name.size() > 0 &&
-                       request.resource.data.inviteCode.size() > 0 &&
-                       request.resource.data.selfDestructAt is timestamp &&
-                       request.resource.data.selfDestructAt > request.time &&
-                       request.resource.data.createdAt == request.time &&
-                       request.resource.data.lastActivity == request.time &&
+                       request.resource.data.name is string && request.resource.data.name.size() > 0 &&
+                       request.resource.data.inviteCode is string && request.resource.data.inviteCode.size() > 0 &&
+                       request.resource.data.description is string &&
                        (request.resource.data.purpose == null || request.resource.data.purpose is string) &&
                        (request.resource.data.theme == null || request.resource.data.theme is string) &&
                        (request.resource.data.imageUrl == null || request.resource.data.imageUrl is string) &&
-                       onlyTheseFieldsAreWritten([
-                         'name', 'description', 'purpose', 'theme', 'inviteCode',
-                         'ownerId', 'memberUserIds', 'createdAt', 'selfDestructAt',
-                         'imageUrl', 'lastActivity'
-                       ]);
+                       request.resource.data.selfDestructAt is timestamp && groupIsActive(request.resource.data.selfDestructAt) &&
+                       request.resource.data.createdAt == request.time &&
+                       request.resource.data.lastActivity == request.time &&
+                       request.resource.data.keys().hasAll(['name', 'description', 'inviteCode', 'ownerId', 'memberUserIds', 'selfDestructAt', 'createdAt', 'lastActivity', 'purpose', 'theme', 'imageUrl']) &&
+                       request.resource.data.keys().hasOnly(['name', 'description', 'inviteCode', 'ownerId', 'memberUserIds', 'selfDestructAt', 'createdAt', 'lastActivity', 'purpose', 'theme', 'imageUrl']);
 
+
+      // This rule is primarily for joining a group
       allow update: if isAuthenticated() &&
-                       isGroupActive(resource.data) && // Check existing group is active
-                       !isGroupMember(resource.data, request.auth.uid) && // User is not already a member of the existing group
-                       isAddingSelfAsNewMember(request.resource.data, resource.data, request.auth.uid) && // New state correctly adds the user
-                       request.resource.data.lastActivity == request.time && // lastActivity must be server time
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']); // Only these fields can change
+                       groupIsActive(resource.data.selfDestructAt) && // Check against existing group's timer
+                       !isUserInMemberList(resource.data.memberUserIds, request.auth.uid) && // User is not already a member
+                       isAddingSelfAsNewMember(resource.data.memberUserIds, request.resource.data.memberUserIds, request.auth.uid) &&
+                       request.resource.data.lastActivity == request.time &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
 
-      allow delete: if false; // Group deletion should be handled by a server process based on selfDestructAt
+
+      allow delete: if false; // Group deletion handled by timer/backend process
     }
   }
 }
