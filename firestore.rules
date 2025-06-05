@@ -4,85 +4,70 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection:
-    // - Allow users to read their own document.
-    // - Allow users to create their own document upon signup.
-    // - Disallow updates/deletes for simplicity in this example, could be expanded.
-    match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId; // e.g. for updating profile
-      allow delete: if false; // Or specific admin/owner logic
+    // Helper function to check if the document being created ONLY contains keys from the allowedFields list.
+    function onlyTheseFieldsAreWritten(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
     }
 
-    // Usernames collection (for ensuring username uniqueness):
-    // - Allow creation if the username document doesn't exist and user is authenticated.
-    // - Allow reads (e.g., to check for uniqueness before creation client-side, though server-side check is more robust).
-    // - Disallow updates/deletes to prevent users from changing or removing username records easily.
+    // Helper function to check if the write operation ONLY changes fields listed in allowedFields.
+    // Other fields must remain unchanged from their existing values.
+    function onlyTheseFieldsAreChanged(allowedFields) {
+      let affected = request.resource.data.diff(resource.data).affectedKeys;
+      return affected.hasOnly(allowedFields);
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /usernames/{username} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid && request.resource.data.username == username;
-      allow update: if false;
-      allow delete: if false;
+      // Allow create if user is authenticated, uid matches, username matches, and only uid/username fields are written.
+      allow create: if request.auth != null &&
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.username == username && // username is the document ID (lowercase)
+                       onlyTheseFieldsAreWritten(['uid', 'username']);
     }
 
-    // Groups collection:
-    // - Allow authenticated users to read groups they are members of.
-    // - Allow authenticated users to create groups where they are the owner and initial member.
-    // - Allow authenticated users to update a group to add themselves as a member (join with code).
     match /groups/{groupId} {
       allow read: if request.auth != null && request.auth.uid in resource.data.memberUserIds;
 
       allow create: if request.auth != null &&
-                       // Creator is the owner
-                       request.resource.data.ownerId == request.auth.uid &&
-                       // Creator is in memberUserIds
+                       request.auth.uid == request.resource.data.ownerId &&
                        request.auth.uid in request.resource.data.memberUserIds &&
-                       // All initial members are just the creator
-                       request.resource.data.memberUserIds.size() == 1 &&
-                       // Required fields are present
-                       request.resource.data.name != null && request.resource.data.name is string &&
-                       request.resource.data.description != null && request.resource.data.description is string &&
-                       request.resource.data.inviteCode != null && request.resource.data.inviteCode is string &&
-                       request.resource.data.selfDestructAt != null && request.resource.data.selfDestructAt is timestamp &&
-                       // Timestamps are set by server
+                       request.resource.data.memberUserIds.size() == 1 && // Initially, only the owner is a member
                        request.resource.data.createdAt == request.time &&
                        request.resource.data.lastActivity == request.time &&
-                       // imageUrl can be null initially
-                       (request.resource.data.imageUrl == null || request.resource.data.imageUrl is string) &&
-                       // purpose and theme are optional
+                       request.resource.data.selfDestructAt is timestamp &&
+                       request.resource.data.selfDestructAt > request.time && // Self-destruct must be in the future
+                       request.resource.data.name is string && request.resource.data.name.size() > 0 &&
+                       request.resource.data.description is string &&
                        (request.resource.data.purpose == null || request.resource.data.purpose is string) &&
-                       (request.resource.data.theme == null || request.resource.data.theme is string);
+                       (request.resource.data.theme == null || request.resource.data.theme is string) &&
+                       request.resource.data.inviteCode is string && request.resource.data.inviteCode.size() > 0 &&
+                       (request.resource.data.imageUrl == null || request.resource.data.imageUrl is string) &&
+                       // Ensure only specific fields are written on create
+                       onlyTheseFieldsAreWritten([
+                         'name', 'description', 'purpose', 'theme', 'inviteCode',
+                         'ownerId', 'memberUserIds', 'createdAt', 'selfDestructAt',
+                         'imageUrl', 'lastActivity'
+                       ]);
 
       allow update: if request.auth != null &&
-                       // Group must exist
-                       exists(/databases/$(database)/documents/groups/$(groupId)) &&
-                       // User was not already a member
-                       !(request.auth.uid in resource.data.memberUserIds) &&
-                       // User is now a member in the new data (client should send arrayUnion)
-                       request.auth.uid in request.resource.data.memberUserIds &&
-                       // Ensure no existing members were removed (new list must contain all old members)
-                       resource.data.memberUserIds.toSet().subsetOf(request.resource.data.memberUserIds.toSet()) &&
-                       // Ensure no more than one new member was added (the current user)
-                       request.resource.data.memberUserIds.size() == resource.data.memberUserIds.size() + 1 &&
-                       // Only 'memberUserIds' and optionally 'lastActivity' are being changed.
-                       // All other fields must remain unchanged from their current values in the database.
+                       // Scenario 1: Joining a group
                        (
-                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds']) ||
-                         (
-                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']) &&
-                           request.resource.data.lastActivity == request.time // lastActivity must be server timestamp if changed
-                         )
+                         request.auth.uid in request.resource.data.memberUserIds &&     // Current user is in the NEW member list
+                         !(request.auth.uid in resource.data.memberUserIds) &&          // Current user was NOT in the OLD member list
+                         request.resource.data.memberUserIds == resource.data.memberUserIds.concat([request.auth.uid]) && // The new list is exactly the old list + current user
+                         request.resource.data.lastActivity == request.time &&
+                         onlyTheseFieldsAreChanged(['memberUserIds', 'lastActivity']) &&  // Ensures ONLY these fields were changed from the original document
+                         resource.data.selfDestructAt > request.time                    // Group has not expired (poofed)
                        );
+                       // Add other update scenarios here if needed, e.g., owner updating details:
+                       // || (request.auth.uid == resource.data.ownerId && /* other conditions */)
 
-      // Add delete rules as needed (e.g., only owner or via self-destruct mechanism)
+      // Allow delete by owner or if group has poofed (implement poof logic via backend function ideally)
       // allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
-      allow delete: if false; // For now, disable manual deletion through client
     }
-
-    // Potentially add rules for chat messages within groups later
-    // match /groups/{groupId}/messages/{messageId} {
-    //   allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
-    // }
   }
 }
