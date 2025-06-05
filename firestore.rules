@@ -12,8 +12,7 @@ service cloud.firestore {
     // Helper function to check if the write operation ONLY changes fields listed in allowedFields.
     // Other fields must remain unchanged from their existing values.
     function onlyTheseFieldsAreChanged(allowedFields) {
-      let affected = request.resource.data.diff(resource.data).affectedKeys;
-      return affected.hasOnly(allowedFields);
+      return request.resource.data.diff(resource.data).affectedKeys.hasOnly(allowedFields);
     }
 
     match /users/{userId} {
@@ -22,10 +21,11 @@ service cloud.firestore {
 
     match /usernames/{username} {
       allow read: if request.auth != null;
-      // Allow create if user is authenticated, uid matches, username matches, and only uid/username fields are written.
+      // Allow create if user is authenticated, uid matches, username matches, and only specific fields are written
       allow create: if request.auth != null &&
                        request.resource.data.uid == request.auth.uid &&
-                       request.resource.data.username == username && // username is the document ID (lowercase)
+                       request.resource.data.username == username && // username is the path variable
+                       request.resource.data.username != '' && // Ensure username is not empty
                        onlyTheseFieldsAreWritten(['uid', 'username']);
     }
 
@@ -35,39 +35,50 @@ service cloud.firestore {
       allow create: if request.auth != null &&
                        request.auth.uid == request.resource.data.ownerId &&
                        request.auth.uid in request.resource.data.memberUserIds &&
-                       request.resource.data.memberUserIds.size() == 1 && // Initially, only the owner is a member
-                       request.resource.data.createdAt == request.time &&
-                       request.resource.data.lastActivity == request.time &&
-                       request.resource.data.selfDestructAt is timestamp &&
-                       request.resource.data.selfDestructAt > request.time && // Self-destruct must be in the future
-                       request.resource.data.name is string && request.resource.data.name.size() > 0 &&
-                       request.resource.data.description is string &&
-                       (request.resource.data.purpose == null || request.resource.data.purpose is string) &&
-                       (request.resource.data.theme == null || request.resource.data.theme is string) &&
-                       request.resource.data.inviteCode is string && request.resource.data.inviteCode.size() > 0 &&
-                       (request.resource.data.imageUrl == null || request.resource.data.imageUrl is string) &&
-                       // Ensure only specific fields are written on create
+                       request.resource.data.memberUserIds.size() == 1 && // Only owner is member on create
+                       request.resource.data.name != '' && // Ensure name is not empty
+                       request.resource.data.inviteCode != '' && // Ensure inviteCode is not empty
+                       // Ensure selfDestructAt is in the future
+                       request.resource.data.selfDestructAt > request.time &&
+                       // Ensure only allowed fields are written on create
                        onlyTheseFieldsAreWritten([
                          'name', 'description', 'purpose', 'theme', 'inviteCode',
                          'ownerId', 'memberUserIds', 'createdAt', 'selfDestructAt',
                          'imageUrl', 'lastActivity'
-                       ]);
+                       ]) &&
+                       request.resource.data.createdAt == request.time &&
+                       request.resource.data.lastActivity == request.time;
 
       allow update: if request.auth != null &&
-                       // Scenario 1: Joining a group
+                       // Scenario: User joining a group
                        (
-                         request.auth.uid in request.resource.data.memberUserIds &&     // Current user is in the NEW member list
-                         !(request.auth.uid in resource.data.memberUserIds) &&          // Current user was NOT in the OLD member list
-                         request.resource.data.memberUserIds == resource.data.memberUserIds.concat([request.auth.uid]) && // The new list is exactly the old list + current user
-                         request.resource.data.lastActivity == request.time &&
-                         onlyTheseFieldsAreChanged(['memberUserIds', 'lastActivity']) &&  // Ensures ONLY these fields were changed from the original document
-                         resource.data.selfDestructAt > request.time                    // Group has not expired (poofed)
+                         request.auth.uid !in resource.data.memberUserIds && // User is not already a member
+                         request.auth.uid in request.resource.data.memberUserIds && // User is being added
+                         // Ensure only the current user is being added to memberUserIds
+                         request.resource.data.memberUserIds == resource.data.memberUserIds.concat([request.auth.uid]) &&
+                         // Ensure group is not expired
+                         resource.data.selfDestructAt > request.time &&
+                         // Check that only 'memberUserIds' and 'lastActivity' are being changed
+                         onlyTheseFieldsAreChanged(['memberUserIds', 'lastActivity']) &&
+                         // If lastActivity is changed, it must be the server timestamp
+                         (
+                           !('lastActivity' in request.resource.data.diff(resource.data).affectedKeys) ||
+                           request.resource.data.lastActivity == request.time
+                         )
                        );
-                       // Add other update scenarios here if needed, e.g., owner updating details:
-                       // || (request.auth.uid == resource.data.ownerId && /* other conditions */)
+                       // Add other update scenarios here if needed (e.g., owner updating group details)
+                       // For example:
+                       // || (
+                       //   request.auth.uid == resource.data.ownerId &&
+                       //   onlyTheseFieldsAreChanged(['name', 'description', 'purpose', 'theme', 'imageUrl', 'lastActivity']) &&
+                       //   (
+                       //      !('lastActivity' in request.resource.data.diff(resource.data).affectedKeys) ||
+                       //      request.resource.data.lastActivity == request.time
+                       //   )
+                       // )
 
-      // Allow delete by owner or if group has poofed (implement poof logic via backend function ideally)
-      // allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      // No general delete for now, groups "poof" based on timer
+      allow delete: if false;
     }
   }
 }
