@@ -54,7 +54,7 @@ async function createGroupInFirestore(data: CreateGroupFormValues & { inviteCode
     theme: data.groupTheme || null,
     inviteCode: data.inviteCode,
     ownerId: ownerId,
-    members: [ownerId], // Owner is the first member
+    // members: [ownerId], // This field was redundant and likely causing permission issues
     memberUserIds: [ownerId], // Storing UIDs for easier querying
     createdAt: serverTimestamp(),
     selfDestructAt: selfDestructAtTimestamp,
