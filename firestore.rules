@@ -4,142 +4,122 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ======== GENERAL HELPER FUNCTIONS ========
-    // These functions do not depend on 'resource.data' of a specific collection
-    // and can be used by any rule within this database.
+    // Global helper functions
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && request.auth.uid != null;
     }
 
-    // Checks if the currently authenticated user is the user specified by userId.
     function isUser(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Checks if the currently authenticated user is the owner, based on a provided ownerId field.
-    function isOwner(ownerIdToCheck) {
-      return isAuthenticated() && request.auth.uid == ownerIdToCheck;
+    // Helper function to check if a user is the owner of a document
+    // docData would be resource.data or request.resource.data
+    function isOwner(docData) {
+      return isAuthenticated() && request.auth.uid == docData.ownerId;
     }
 
-    // Checks if a string is not empty and within a max length.
-    function isValidString(str, minLength, maxLength) {
-      return str is string && str.size() >= minLength && str.size() <= maxLength;
+    // Helper: Is the user a member of the provided list?
+    // This function is general and can be global if memberList and userId are passed.
+    function isUserInMemberList(memberList, userId) {
+      // CRITICAL FIX: Use hasAny for lists
+      return memberList.hasAny([userId]);
     }
 
-    // Checks if a value is a timestamp and in the future.
-    function isFutureTimestamp(t) {
-      return t is timestamp && t > request.time;
+    // Helper function to check required fields for group creation
+    function requiredGroupCreationFieldsPresent(data) {
+      return data.name != null &&
+             data.description != null &&
+             data.inviteCode != null &&
+             data.ownerId != null &&
+             data.memberUserIds != null && data.memberUserIds.size() > 0 && // Ensure owner is in memberUserIds
+             data.createdAt != null && // serverTimestamp() handles this
+             data.selfDestructAt != null &&
+             data.memberUserIds[0] == data.ownerId; // Ensure the first member is the owner
     }
 
-    // Checks if a value is a server timestamp placeholder or an actual timestamp.
-    function isServerTimestampOrTimestamp(t) {
-      return t == request.time || t is timestamp;
+    // Helper: Only specific fields are allowed during group creation
+    function onlyAllowedGroupCreationFieldsWritten(data) {
+      let allowedFields = ['name', 'description', 'purpose', 'theme', 'inviteCode', 'ownerId', 'memberUserIds', 'createdAt', 'selfDestructAt', 'imageUrl', 'lastActivity'];
+      return data.keys().hasOnly(allowedFields);
     }
 
+    // Helper: All expected fields are present and allowed
+    function allGroupCreationFieldsPresentAndAllowed(data) {
+        return requiredGroupCreationFieldsPresent(data) && onlyAllowedGroupCreationFieldsWritten(data);
+    }
 
-    // ======== USERS COLLECTION (/users/{userId}) ========
+    // Helper: Is the group active (not yet self-destructed)?
+    // This needs groupData (e.g. resource.data), so it's best used within the group match or passed data.
+    function groupIsActive(groupData) {
+      return groupData.selfDestructAt != null && request.time < groupData.selfDestructAt;
+    }
+
     match /users/{userId} {
       allow read: if isUser(userId);
       allow create: if isAuthenticated() &&
-                       request.resource.data.uid == request.auth.uid && // Check if creating user is the one being created
-                       request.resource.data.username == request.resource.data.username && // Placeholder, should be validated
-                       isValidString(request.resource.data.username, 3, 20) &&
-                       request.resource.data.email == request.auth.email &&
-                       request.resource.data.createdAt == request.time &&
-                       request.resource.data.keys().hasOnly(['uid', 'username', 'email', 'createdAt', 'photoURL']); // Ensure only allowed fields
-      allow update: if false;
-      allow delete: if false;
+                      request.resource.data.uid == request.auth.uid &&
+                      request.resource.data.email == request.auth.token.email &&
+                      request.resource.data.username != null &&
+                      request.resource.data.username.size() >= 3 &&
+                      request.resource.data.username.size() <= 20 &&
+                      request.resource.data.keys().hasAll(['uid', 'email', 'username', 'photoURL', 'createdAt']) &&
+                      request.resource.data.keys().size() == 5; // Ensure no extra fields
+      allow update: if isUser(userId) &&
+                       request.resource.data.uid == userId && // UID cannot change
+                       request.resource.data.email == resource.data.email && // Email cannot change
+                       request.resource.data.username == resource.data.username && // Username cannot change (for now)
+                       request.resource.data.createdAt == resource.data.createdAt; // CreatedAt cannot change
+                       // Allow photoURL to be updated
     }
 
-    // ======== USERNAMES COLLECTION (/usernames/{username}) ========
-    // Stores a mapping of username.toLowerCase() to uid for uniqueness checks.
-    match /usernames/{usernameDocId} { // usernameDocId is the lowercase username
-      allow read: if isAuthenticated();
+    match /usernames/{username} {
+      allow read: if isAuthenticated(); // Or more specific if needed
       allow create: if isAuthenticated() &&
-                       request.resource.data.uid == request.auth.uid &&
-                       request.resource.data.username.lower() == usernameDocId && // username stored here is case-preserved
-                       request.resource.data.keys().hasOnly(['uid', 'username']);
-      allow update: if false;
-      allow delete: if false;
+                      request.resource.data.uid == request.auth.uid &&
+                      request.resource.data.username == username; // Ensure username matches document ID (lowercase)
     }
 
-    // ======== GROUPS COLLECTION (/groups/{groupId}) ========
     match /groups/{groupId} {
-
-      // --- Group-Specific Helper Functions ---
-      // These helpers use 'resource.data' or 'request.resource.data' specific to a group.
-
-      // Checks if a user is in a given member list.
-      function isUserInMemberList(memberList, userIdToFind) {
-        return memberList is list && userIdToFind != null && memberList.hasAny([userIdToFind]);
+      // Helper: Is the group data valid for update by a new member joining?
+      function isValidMemberJoinUpdate(currentData, newData, newMemberId) {
+        return newData.memberUserIds.size() == currentData.memberUserIds.size() + 1 &&
+               newData.memberUserIds.hasAll(currentData.memberUserIds) && // All old members are still there
+               newData.memberUserIds.hasAny([newMemberId]) && // New member is added
+               newData.lastActivity == request.time && // lastActivity is updated
+               // Ensure no other fields are changed besides memberUserIds and lastActivity
+               newData.name == currentData.name &&
+               newData.description == currentData.description &&
+               newData.purpose == currentData.purpose &&
+               newData.theme == currentData.theme &&
+               newData.inviteCode == currentData.inviteCode &&
+               newData.ownerId == currentData.ownerId &&
+               newData.createdAt == currentData.createdAt &&
+               newData.selfDestructAt == currentData.selfDestructAt &&
+               newData.imageUrl == currentData.imageUrl;
       }
 
-      // Checks if the group (existing document) is still active based on its selfDestructAt time.
-      function groupIsActive() {
-        // Ensure resource.data.selfDestructAt exists and is a timestamp before comparing
-        return 'selfDestructAt' in resource.data &&
-               resource.data.selfDestructAt is timestamp &&
-               resource.data.selfDestructAt > request.time;
-      }
-
-      // Validates fields for group creation.
-      function hasValidGroupCreationFields() {
-        let data = request.resource.data;
-        return isValidString(data.name, 3, 50) &&
-               isValidString(data.description, 5, 200) &&
-               (data.purpose == null || isValidString(data.purpose, 0, 100)) &&
-               (data.theme == null || isValidString(data.theme, 0, 50)) &&
-               (data.imageUrl == null || data.imageUrl is string) &&
-               data.ownerId == request.auth.uid &&
-               data.memberUserIds is list && data.memberUserIds.size() == 1 && data.memberUserIds[0] == request.auth.uid &&
-               isValidString(data.inviteCode, 8, 8) && // Assuming fixed length 8
-               data.selfDestructTimerDays is number && data.selfDestructTimerDays >= 1 && data.selfDestructTimerDays <= 31 &&
-               isFutureTimestamp(data.selfDestructAt) &&
-               data.createdAt == request.time &&
-               data.lastActivity == request.time;
-      }
-      
-      function allGroupCreationFieldsPresentAndAllowed() {
-          let expectedFields = ['name', 'description', 'purpose', 'theme', 'imageUrl', 'ownerId', 'memberUserIds', 'inviteCode', 'selfDestructTimerDays', 'selfDestructAt', 'createdAt', 'lastActivity'];
-          return request.resource.data.keys().hasAll(expectedFields) && request.resource.data.keys().hasOnly(expectedFields);
-      }
-
-
-      // --- Group Access Rules ---
-
-      allow read: if isAuthenticated() && isUserInMemberList(resource.data.memberUserIds, request.auth.uid);
+      allow read: if isAuthenticated() &&
+                     groupIsActive(resource.data) &&
+                     isUserInMemberList(resource.data.memberUserIds, request.auth.uid); // Uses corrected helper
 
       allow create: if isAuthenticated() &&
-                       request.auth.uid == request.resource.data.ownerId &&
-                       hasValidGroupCreationFields() &&
-                       allGroupCreationFieldsPresentAndAllowed();
+                       allGroupCreationFieldsPresentAndAllowed(request.resource.data) &&
+                       isOwner(request.resource.data) && // Check owner based on incoming data
+                       request.resource.data.memberUserIds.hasAny([request.auth.uid]); // Creator must be a member
+
 
       allow update: if isAuthenticated() &&
-                       // Condition for JOINING a group
+                       groupIsActive(resource.data) && // Group must be active to be updated
+                       // Scenario: New member joining via invite code
                        (
-                         groupIsActive() && // Check existing group is active
-                         !isUserInMemberList(resource.data.memberUserIds, request.auth.uid) && // User is not already a member
-                         request.resource.data.memberUserIds == resource.data.memberUserIds.concat([request.auth.uid]) && // Only adding self
-                         request.resource.data.lastActivity == request.time &&
-                         // Ensure ONLY memberUserIds and lastActivity are changed for joining
-                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']) &&
-                         // Ensure other essential fields are not modified from their original values
-                         request.resource.data.name == resource.data.name &&
-                         request.resource.data.description == resource.data.description &&
-                         request.resource.data.ownerId == resource.data.ownerId &&
-                         request.resource.data.inviteCode == resource.data.inviteCode &&
-                         request.resource.data.selfDestructAt == resource.data.selfDestructAt &&
-                         request.resource.data.createdAt == resource.data.createdAt &&
-                         request.resource.data.purpose == resource.data.purpose &&
-                         request.resource.data.theme == resource.data.theme &&
-                         request.resource.data.imageUrl == resource.data.imageUrl &&
-                         request.resource.data.selfDestructTimerDays == resource.data.selfDestructTimerDays
+                         !isUserInMemberList(resource.data.memberUserIds, request.auth.uid) && // User is NOT already a member (uses corrected helper)
+                         isValidMemberJoinUpdate(resource.data, request.resource.data, request.auth.uid)
                        );
-                       // Add other update scenarios here with `|| (...)` e.g. for owner updating group details
+                       // Add other update scenarios like owner changing description if needed, e.g.:
+                       // || (isOwner(resource.data) && /* specific field change checks */ )
 
-      allow delete: if false; // Group deletion handled by self-destruct timer (implicitly, e.g. via a backend function)
+      // No delete rule for now, groups "poof" by becoming unreadable/unwritable after selfDestructAt
     }
   }
 }
-
-    
