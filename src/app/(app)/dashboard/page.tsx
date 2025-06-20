@@ -122,7 +122,12 @@ export default function DashboardPage() {
       setIsLoadingGroups(true);
       try {
         const groupsRef = collection(db, "groups");
-        const q = query(groupsRef, where("memberUserIds", "array-contains", user.uid), orderBy("createdAt", "desc"));
+        // Query only for active groups where user is a member, order by which expires soonest.
+        const q = query(groupsRef, 
+          where("memberUserIds", "array-contains", user.uid),
+          where("selfDestructAt", ">", new Date()),
+          orderBy("selfDestructAt", "asc")
+        );
         const querySnapshot = await getDocs(q);
         const fetchedGroups: Group[] = querySnapshot.docs.map(doc => {
           const data = doc.data();
@@ -198,10 +203,10 @@ export default function DashboardPage() {
       {groups.length === 0 ? (
         <Alert className="max-w-2xl mx-auto shadow-md">
           <Info className="h-4 w-4" />
-          <AlertTitle className="font-semibold">No Groups Yet!</AlertTitle>
+          <AlertTitle className="font-semibold">No Active Groups!</AlertTitle>
           <AlertDescription>
-            You're not part of any Poof groups. Why not create one or join using an invite code?
-            Poof groups are temporary and will disappear after a set time.
+            You aren't part of any active Poof groups. Why not create one or join using an invite code?
+            Expired groups won't show up here.
           </AlertDescription>
         </Alert>
       ) : (
@@ -220,5 +225,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
