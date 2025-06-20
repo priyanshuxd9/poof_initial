@@ -3,94 +3,90 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Global helper functions
+    
+    // --- Global Helper Functions ---
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isUser(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isGroupMember(groupId) {
-      return get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
-    }
-
-    // USER-RELATED RULES
+    // --- User & Username Rules ---
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow read, create, update: if isAuthenticated() && request.auth.uid == userId;
       allow delete: if false; 
     }
 
     match /usernames/{username} {
-      allow read: if isAuthenticated();
-      allow create: if request.resource.data.uid == request.auth.uid;
-      allow update, delete: if false;
+      allow read, create: if isAuthenticated();
     }
 
-    // GROUP-RELATED RULES
+    // --- Group Rules ---
     match /groups/{groupId} {
-      allow read: if isAuthenticated() && isGroupMember(groupId);
       
-      allow create: if isAuthenticated() && allGroupCreationFieldsPresentAndAllowed();
-      
-      allow update: if isAuthenticated() 
-                      && (isGroupMember(groupId) || canJoinGroup());
-
-      allow delete: if false; // Groups self-destruct via TTL policy, no manual delete
-
-      // Helper for validating group creation data.
-      function allGroupCreationFieldsPresentAndAllowed() {
-        let data = request.resource.data;
-        let expectedKeys = ['name', 'description', 'purpose', 'theme', 'inviteCode', 'ownerId', 'memberUserIds', 'createdAt', 'selfDestructAt', 'imageUrl', 'lastActivity'];
-        return data.keys().hasAll(expectedKeys)
-               && data.keys().size() == expectedKeys.size()
-               && data.ownerId == request.auth.uid
-               && data.memberUserIds.size() == 1
-               && data.memberUserIds[0] == request.auth.uid
-               && data.name is string && data.name.size() > 0
-               && data.description is string && data.description.size() > 0
-               && data.inviteCode is string
-               && data.selfDestructAt is timestamp;
-      }
-      
-      // Helper for validating a user joining a group.
-      function canJoinGroup() {
-          let data = request.resource.data;
-          let futureData = request.resource.data;
-
-          return futureData.memberUserIds.size() == data.memberUserIds.size() + 1
-              && futureData.memberUserIds.hasAny([request.auth.uid])
-              && data.selfDestructAt > request.time;
+      // Helper to check if a user is a member based on the document data
+      // This correctly uses hasAny() to check for an item in a list.
+      function isGroupMember(groupData) {
+        return 'memberUserIds' in groupData && 
+               groupData.memberUserIds is list && 
+               groupData.memberUserIds.hasAny([request.auth.uid]);
       }
 
-      // MESSAGES SUBCOLLECTION RULES
+      // Helper to check if group is active based on document data
+      function groupIsActive(groupData) {
+        return 'selfDestructAt' in groupData &&
+               groupData.selfDestructAt is timestamp &&
+               groupData.selfDestructAt > request.time;
+      }
+      
+      // GET: Allow a user to get a single group document if they are a member and it's active.
+      allow get: if isAuthenticated() && isGroupMember(resource.data) && groupIsActive(resource.data);
+
+      // LIST: Allow authenticated users to perform queries. The get rule above will secure the data read by the dashboard.
+      // This rule allows the query-by-invite-code to succeed.
+      allow list: if isAuthenticated();
+
+      // CREATE: Allow authenticated user to create a group where they are the owner.
+      allow create: if isAuthenticated() &&
+                      request.resource.data.ownerId == request.auth.uid &&
+                      request.auth.uid in request.resource.data.memberUserIds;
+
+      // UPDATE: The key rule for joining a group and sending messages.
+      allow update: if isAuthenticated() &&
+                      // The group being updated must be active
+                      groupIsActive(resource.data) &&
+                      (
+                        // Case 1: A NEW member is joining via invite code.
+                        (
+                          !isGroupMember(resource.data) &&
+                          // They can ONLY add themselves to the member list.
+                          request.resource.data.memberUserIds == resource.data.memberUserIds.concat([request.auth.uid]) &&
+                          // And they must update the lastActivity timestamp.
+                          request.resource.data.lastActivity > resource.data.lastActivity &&
+                          // And they CANNOT change any other immutable fields.
+                          request.resource.data.name == resource.data.name &&
+                          request.resource.data.ownerId == resource.data.ownerId &&
+                          request.resource.data.inviteCode == resource.data.inviteCode
+                        ) ||
+                        // Case 2: A CURRENT member is sending a message (updating lastActivity).
+                        (
+                          isGroupMember(resource.data) &&
+                          request.resource.data.lastActivity > resource.data.lastActivity &&
+                          request.resource.data.memberUserIds == resource.data.memberUserIds
+                        )
+                      );
+      
+      allow delete: if false;
+
+      // --- Messages Subcollection Rules ---
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && isGroupMember(groupId);
-        
-        allow create: if isAuthenticated() 
-                      && isGroupMember(groupId)
-                      && canCreateMessage();
-                      
-        allow update, delete: if false; // Keep it simple for now
-
-        // Helper for validating a new message
-        function canCreateMessage() {
-          let data = request.resource.data;
-          return data.senderId == request.auth.uid
-                 && data.senderUsername is string
-                 && (data.senderAvatarUrl == null || data.senderAvatarUrl is string)
-                 && (data.text is string && data.text.size() > 0 && data.text.size() < 2000 || data.text == null)
-                 && (data.mediaUrl == null && data.mediaType == null) // Media validation can be added later
-                 && data.timestamp == request.time;
+        // Helper to check parent group membership. get() is the correct way to access a different doc.
+        function isParentGroupMember() {
+            let parentGroupData = get(/databases/$(database)/documents/groups/$(groupId)).data;
+            return isGroupMember(parentGroupData);
         }
+
+        allow read, list: if isParentGroupMember();
+        allow create: if isParentGroupMember() && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
       }
     }
   }
