@@ -7,44 +7,17 @@ import { GroupHeaderChat, type ChatGroupHeaderInfo } from "@/components/chat/gro
 import { MessageList, type ChatMessageData } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton"; // Added missing import
-
-// Mock group data fetching function
-async function fetchGroupDetails(groupId: string): Promise<ChatGroupHeaderInfo | null> {
-  console.log(`Fetching details for group ${groupId}`);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-  if (groupId === "1" || groupId === "2" || groupId === "3" || groupId.startsWith("mockGroupId")) {
-    return {
-      id: groupId,
-      name: groupId.startsWith("mockGroupId") ? "Newly Created Group" : `Group ${groupId}`,
-      memberCount: groupId === "1" ? 12 : (groupId === "2" ? 5 : (groupId === "3" ? 25 : 2)),
-      imageUrl: "https://placehold.co/100x100.png",
-      selfDestructAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * (parseInt(groupId.slice(-1)) || 7)).toISOString(),
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-      inviteCode: "MOCK" + groupId + "CODE",
-    };
-  }
-  return null;
-}
-
-// Mock messages data fetching function
-async function fetchMessages(groupId: string): Promise<ChatMessageData[]> {
-   console.log(`Fetching messages for group ${groupId}`);
-   await new Promise(resolve => setTimeout(resolve, 700));
-   return [
-    { id: "m1", senderId: "user2", senderUsername: "Alice", text: "Hey everyone! How's it going?", timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), senderAvatarUrl: "https://placehold.co/40x40.png?text=A" },
-    { id: "m2", senderId: "user123", senderUsername: "TestUser", text: "Hi Alice! Doing well, thanks. Excited for this Poof group!", timestamp: new Date(Date.now() - 1000 * 60 * 8).toISOString(), senderAvatarUrl: "https://placehold.co/40x40.png?text=T" },
-    { id: "m3", senderId: "user2", senderUsername: "Alice", text: "Me too! This self-destruct timer is cool.", timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), senderAvatarUrl: "https://placehold.co/40x40.png?text=A" },
-    { id: "m4", senderId: "user3", senderUsername: "Bob", mediaUrl: "https://placehold.co/300x200.png", mediaType: "image", timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), senderAvatarUrl: "https://placehold.co/40x40.png?text=B" },
-   ];
-}
+import { Skeleton } from "@/components/ui/skeleton";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 
 export default function GroupChatPage() {
   const params = useParams();
   const groupId = params.groupId as string;
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [groupInfo, setGroupInfo] = useState<ChatGroupHeaderInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
@@ -53,40 +26,109 @@ export default function GroupChatPage() {
   const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
-    if (groupId) {
-      setIsLoadingGroup(true);
-      fetchGroupDetails(groupId).then(data => {
-        setGroupInfo(data);
-        setIsLoadingGroup(false);
-      });
+    if (!groupId) return;
 
-      setIsLoadingMessages(true);
-      fetchMessages(groupId).then(data => {
-        setMessages(data);
-        setIsLoadingMessages(false);
+    setIsLoadingGroup(true);
+    const groupDocRef = doc(db, "groups", groupId);
+    const unsubscribe = onSnapshot(groupDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setGroupInfo({
+          id: docSnap.id,
+          name: data.name,
+          memberCount: data.memberUserIds?.length || 0,
+          imageUrl: data.imageUrl,
+          selfDestructAt: (data.selfDestructAt as Timestamp).toDate().toISOString(),
+          createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+          inviteCode: data.inviteCode,
+        });
+      } else {
+        setGroupInfo(null);
+      }
+      setIsLoadingGroup(false);
+    });
+
+    // Cleanup listener on component unmount
+    return () => unsubscribe();
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+
+    setIsLoadingMessages(true);
+    const messagesColRef = collection(db, "groups", groupId, "messages");
+    const q = query(messagesColRef, orderBy("timestamp", "asc"));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedMessages: ChatMessageData[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedMessages.push({
+          id: doc.id,
+          senderId: data.senderId,
+          senderUsername: data.senderUsername,
+          senderAvatarUrl: data.senderAvatarUrl,
+          text: data.text,
+          mediaUrl: data.mediaUrl,
+          mediaType: data.mediaType,
+          timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        });
       });
-    }
+      setMessages(fetchedMessages);
+      setIsLoadingMessages(false);
+    }, (error) => {
+      console.error("Error fetching messages:", error);
+      setIsLoadingMessages(false);
+      // Optional: show a toast or error message to the user
+    });
+
+    return () => unsubscribe(); // Cleanup listener on unmount
   }, [groupId]);
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
-    if (!user || !groupInfo) return;
+    if (!user || !groupId || (!message.text?.trim() && !message.file)) return;
     setIsSending(true);
-    // Simulate sending message
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const newMessage: ChatMessageData = {
-      id: `msg-${Date.now()}`,
-      senderId: user.uid,
-      senderUsername: user.username || user.email?.split('@')[0] || "You",
-      senderAvatarUrl: user.photoURL || undefined,
-      text: message.text,
-      timestamp: new Date().toISOString(),
-    };
+
+    // For now, we only handle text messages. File uploads will be implemented later.
     if (message.file) {
-      newMessage.mediaUrl = URL.createObjectURL(message.file); // Mock URL
-      newMessage.mediaType = message.file.type.startsWith("image/") ? "image" : "video";
+      toast({
+        title: "Feature not available",
+        description: "File sharing is coming soon!",
+        variant: "destructive"
+      });
+      setIsSending(false);
+      return;
     }
-    setMessages(prevMessages => [...prevMessages, newMessage]);
-    setIsSending(false);
+
+    try {
+        const messagesColRef = collection(db, 'groups', groupId, 'messages');
+        await addDoc(messagesColRef, {
+            senderId: user.uid,
+            senderUsername: user.username || user.email?.split('@')[0] || 'Unknown User',
+            senderAvatarUrl: user.photoURL || null,
+            text: message.text?.trim(),
+            timestamp: serverTimestamp(),
+            // Set media fields to null for text messages
+            mediaUrl: null,
+            mediaType: null,
+        });
+        
+        // Also update the group's lastActivity timestamp
+        const groupDocRef = doc(db, 'groups', groupId);
+        await updateDoc(groupDocRef, {
+            lastActivity: serverTimestamp()
+        });
+
+    } catch (error) {
+        console.error("Error sending message:", error);
+        toast({
+            title: "Error Sending Message",
+            description: "Could not send your message. Please try again.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsSending(false);
+    }
   };
 
   if (isLoadingGroup) {
@@ -129,7 +171,7 @@ export default function GroupChatPage() {
   }
 
   if (!groupInfo) {
-    return <div className="flex items-center justify-center h-screen text-xl text-destructive">Group not found or an error occurred.</div>;
+    return <div className="flex items-center justify-center h-screen text-xl text-destructive">Group not found, it may have expired, or you don't have access.</div>;
   }
 
   return (
@@ -140,4 +182,3 @@ export default function GroupChatPage() {
     </div>
   );
 }
-

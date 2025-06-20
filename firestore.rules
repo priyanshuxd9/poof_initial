@@ -3,51 +3,95 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper Functions
+
+    // Global helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    function isUser(userId) {
+    function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    // Usernames: Publicly readable to check for uniqueness, but only the user can create their own username document.
-    match /usernames/{username} {
-      allow read;
-      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && request.resource.data.username == username;
-      allow update, delete: if false; 
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // User Profiles: Only the authenticated user can read or write to their own document.
+    function isGroupMember(groupId) {
+      return get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
+    }
+
+    // USER-RELATED RULES
     match /users/{userId} {
-      allow read, write: if isUser(userId);
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; 
     }
 
-    // Groups:
+    match /usernames/{username} {
+      allow read: if isAuthenticated();
+      allow create: if request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // GROUP-RELATED RULES
     match /groups/{groupId} {
+      allow read: if isAuthenticated() && isGroupMember(groupId);
       
-      function isGroupMember() {
-        return request.auth.uid in resource.data.memberUserIds;
+      allow create: if isAuthenticated() && allGroupCreationFieldsPresentAndAllowed();
+      
+      allow update: if isAuthenticated() 
+                      && (isGroupMember(groupId) || canJoinGroup());
+
+      allow delete: if false; // Groups self-destruct via TTL policy, no manual delete
+
+      // Helper for validating group creation data.
+      function allGroupCreationFieldsPresentAndAllowed() {
+        let data = request.resource.data;
+        let expectedKeys = ['name', 'description', 'purpose', 'theme', 'inviteCode', 'ownerId', 'memberUserIds', 'createdAt', 'selfDestructAt', 'imageUrl', 'lastActivity'];
+        return data.keys().hasAll(expectedKeys)
+               && data.keys().size() == expectedKeys.size()
+               && data.ownerId == request.auth.uid
+               && data.memberUserIds.size() == 1
+               && data.memberUserIds[0] == request.auth.uid
+               && data.name is string && data.name.size() > 0
+               && data.description is string && data.description.size() > 0
+               && data.inviteCode is string
+               && data.selfDestructAt is timestamp;
       }
       
-      // Read rule: Allow if user is authenticated and their UID is in the memberUserIds list.
-      // We will also enforce the selfDestructAt check in the client query, so the rule just needs to check membership.
-      allow read: if isAuthenticated() && isGroupMember();
+      // Helper for validating a user joining a group.
+      function canJoinGroup() {
+          let data = request.resource.data;
+          let futureData = request.resource.data;
 
-      // Create rule: Any authenticated user can create a group.
-      allow create: if isAuthenticated();
+          return futureData.memberUserIds.size() == data.memberUserIds.size() + 1
+              && futureData.memberUserIds.hasAny([request.auth.uid])
+              && data.selfDestructAt > request.time;
+      }
 
-      // Update rule: Allow if an authenticated user is joining (their UID is being added to memberUserIds)
-      // AND the group has not expired.
-      allow update: if isAuthenticated()
-                      && request.auth.uid in request.resource.data.memberUserIds   // The user must be adding themself
-                      && !(request.auth.uid in resource.data.memberUserIds)      // and not already be a member
-                      && request.resource.data.selfDestructAt > request.time;     // and the group must not be expired.
+      // MESSAGES SUBCOLLECTION RULES
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && isGroupMember(groupId);
+        
+        allow create: if isAuthenticated() 
+                      && isGroupMember(groupId)
+                      && canCreateMessage();
+                      
+        allow update, delete: if false; // Keep it simple for now
 
-      // Delete rule: No one can delete a group directly. This will be handled by a backend function later.
-      allow delete: if false;
+        // Helper for validating a new message
+        function canCreateMessage() {
+          let data = request.resource.data;
+          return data.senderId == request.auth.uid
+                 && data.senderUsername is string
+                 && (data.senderAvatarUrl == null || data.senderAvatarUrl is string)
+                 && (data.text is string && data.text.size() > 0 && data.text.size() < 2000 || data.text == null)
+                 && (data.mediaUrl == null && data.mediaType == null) // Media validation can be added later
+                 && data.timestamp == request.time;
+        }
+      }
     }
   }
 }
