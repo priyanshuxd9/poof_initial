@@ -145,6 +145,7 @@ export default function DashboardPage() {
         setGroups(fetchedGroups);
       } catch (error) {
         console.error("Error fetching groups:", error);
+        // This is where the error with the index link will appear
         // Potentially set an error state here to show to the user
       } finally {
         setIsLoadingGroups(false);
