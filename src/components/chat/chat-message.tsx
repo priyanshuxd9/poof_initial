@@ -42,7 +42,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
   };
 
   return (
-    <div className={cn("flex gap-3 py-3 px-2 group", isCurrentUserMessage ? "justify-end" : "justify-start")}>
+    <div className={cn("flex gap-3 py-2 px-2 group", isCurrentUserMessage ? "justify-end" : "justify-start")}>
       {!isCurrentUserMessage && (
         <Avatar className="h-8 w-8 self-end">
           <AvatarImage src={message.senderAvatarUrl || `https://placehold.co/40x40.png`} alt={message.senderUsername} data-ai-hint="user avatar" />
