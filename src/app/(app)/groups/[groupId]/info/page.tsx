@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db, storage, getUsersFromIds, type AppUser } from "@/lib/firebase";
-import { doc, getDoc, Timestamp, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, Timestamp, updateDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getInitials } from "@/lib/utils";
 import { format } from "date-fns";
@@ -50,7 +50,7 @@ export default function GroupInfoPage() {
         const groupDocRef = doc(db, "groups", groupId);
         const groupSnap = await getDoc(groupDocRef);
 
-        if (!groupSnap.exists() || !groupSnap.data().memberUserIds.includes(currentUser?.uid)) {
+        if (!groupSnap.exists() || !groupSnap.data()?.memberUserIds?.includes(currentUser?.uid ?? '')) {
           setGroupInfo(null);
           return;
         }
@@ -110,9 +110,11 @@ export default function GroupInfoPage() {
       const newImageUrl = await getDownloadURL(sRef);
       
       const groupDocRef = doc(db, "groups", groupId);
+      // Simplified the update to only change the imageUrl.
+      // The lastActivity timestamp is not critical here and simplifying this
+      // makes the security rule more reliable.
       await updateDoc(groupDocRef, {
         imageUrl: newImageUrl,
-        lastActivity: serverTimestamp()
       });
 
       setGroupInfo(prev => prev ? { ...prev, imageUrl: newImageUrl } : null);
