@@ -28,7 +28,7 @@ import { generateGroupDescription, GenerateGroupDescriptionInput } from "@/ai/fl
 import { suggestSelfDestructTimer, SuggestSelfDestructTimerInput } from "@/ai/flows/suggest-self-destruct-timer";
 import { useAuth } from "@/contexts/auth-context";
 import { db, storage } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, doc, serverTimestamp, Timestamp, setDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -42,47 +42,6 @@ const createGroupSchema = z.object({
 });
 
 type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
-
-// Function for creating group in Firestore
-async function createGroupInFirestore(data: CreateGroupFormValues & { inviteCode: string }, ownerId: string) {
-  console.log("Creating group in Firestore with data:", data, "Owner ID:", ownerId);
-  
-  const selfDestructDate = new Date();
-  selfDestructDate.setDate(selfDestructDate.getDate() + data.selfDestructTimerDays);
-  const selfDestructAtTimestamp = Timestamp.fromDate(selfDestructDate);
-
-  const groupDocData = {
-    name: data.groupName,
-    description: data.description,
-    purpose: data.groupPurpose || null,
-    theme: data.groupTheme || null,
-    inviteCode: data.inviteCode,
-    ownerId: ownerId,
-    memberUserIds: [ownerId],
-    createdAt: serverTimestamp(),
-    selfDestructAt: selfDestructAtTimestamp,
-    imageUrl: null, // Start with null, will be updated after upload
-    lastActivity: serverTimestamp(),
-  };
-
-  try {
-    const groupsCollectionRef = collection(db, "groups");
-    const docRef = await addDoc(groupsCollectionRef, groupDocData);
-    console.log("Group created with ID:", docRef.id);
-    return { id: docRef.id };
-  } catch (error) {
-    console.error("Error creating group in Firestore:", error);
-    throw error;
-  }
-}
-
-const uploadGroupImage = async (file: File, groupId: string): Promise<string> => {
-    const filePath = `group-avatars/${groupId}/${file.name}`;
-    const sRef = storageRef(storage, filePath);
-    await uploadBytes(sRef, file);
-    return getDownloadURL(sRef);
-};
-
 
 export function CreateGroupForm() {
   const [isPending, startTransition] = useTransition();
@@ -193,29 +152,52 @@ export function CreateGroupForm() {
 
     startTransition(async () => {
       try {
-        const inviteCode = generateInviteCode();
-        // Step 1: Create the group doc in Firestore to get an ID.
-        const groupData = { ...values, inviteCode };
-        const { id: groupId } = await createGroupInFirestore(groupData, user.uid); 
-        
-        // Step 2: If there's an image, upload it using the new group ID.
+        // 1. Generate a new group document reference to get a unique ID upfront.
+        const groupDocRef = doc(collection(db, "groups"));
+        const groupId = groupDocRef.id;
+
+        let finalImageUrl: string | null = null;
+
+        // 2. If an image was selected, upload it to Storage using the new groupId.
         if (groupImage) {
-          const finalImageUrl = await uploadGroupImage(groupImage, groupId);
-          
-          // Step 3: Update the group doc with the imageUrl.
-          const groupDocRef = doc(db, "groups", groupId);
-          await updateDoc(groupDocRef, { imageUrl: finalImageUrl });
+          const filePath = `group-avatars/${groupId}/avatar.jpg`;
+          const sRef = storageRef(storage, filePath);
+          await uploadBytes(sRef, groupImage);
+          finalImageUrl = await getDownloadURL(sRef);
         }
         
+        // 3. Prepare the complete group document data.
+        const inviteCode = generateInviteCode();
+        const selfDestructDate = new Date();
+        selfDestructDate.setDate(selfDestructDate.getDate() + values.selfDestructTimerDays);
+        
+        const groupDocData = {
+          name: values.groupName,
+          description: values.description,
+          purpose: values.groupPurpose || null,
+          theme: values.groupTheme || null,
+          inviteCode: inviteCode,
+          ownerId: user.uid,
+          memberUserIds: [user.uid],
+          createdAt: serverTimestamp(),
+          selfDestructAt: Timestamp.fromDate(selfDestructDate),
+          imageUrl: finalImageUrl,
+          lastActivity: serverTimestamp(),
+        };
+
+        // 4. Create the document in Firestore with a single setDoc call.
+        await setDoc(groupDocRef, groupDocData);
+
         toast({
           title: "Group Created!",
           description: `Your group "${values.groupName}" is live. Invite code: ${inviteCode}`,
         });
         router.push(`/groups/${groupId}`); 
       } catch (error: any) {
+        console.error("Group creation failed:", error);
         toast({
           title: "Creation Failed",
-          description: error.message || "Could not create group.",
+          description: error.message || "An unexpected error occurred. Please try again.",
           variant: "destructive",
         });
       }
@@ -226,7 +208,7 @@ export function CreateGroupForm() {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormItem>
-          <FormLabel className="text-lg">Group Image</FormLabel>
+          <FormLabel className="text-lg">Group Image (Optional)</FormLabel>
           <FormControl>
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20 cursor-pointer border" onClick={() => fileInputRef.current?.click()}>

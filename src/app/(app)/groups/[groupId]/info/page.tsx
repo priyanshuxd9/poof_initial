@@ -124,7 +124,6 @@ export default function GroupInfoPage() {
       toast({ title: "Upload Failed", description: "Could not update the group icon. Please try again.", variant: "destructive" });
     } finally {
         setIsUploading(false);
-        // Reset file input
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
