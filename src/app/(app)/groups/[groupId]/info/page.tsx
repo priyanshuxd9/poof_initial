@@ -21,6 +21,7 @@ interface GroupInfo {
   ownerId: string;
   memberUserIds: string[];
   createdAt: string; // ISO string
+  imageUrl?: string;
 }
 
 export default function GroupInfoPage() {
@@ -53,6 +54,7 @@ export default function GroupInfoPage() {
           ownerId: groupData.ownerId,
           memberUserIds: groupData.memberUserIds,
           createdAt: (groupData.createdAt as Timestamp).toDate().toISOString(),
+          imageUrl: groupData.imageUrl,
         };
         setGroupInfo(info);
 
@@ -128,7 +130,7 @@ export default function GroupInfoPage() {
         <CardHeader className="text-center border-b pb-6">
           <div className="flex justify-center mb-4">
             <Avatar className="h-20 w-20 border-4 border-primary">
-                <AvatarImage src={groupInfo.imageUrl || `https://placehold.co/100x100.png`} alt={groupInfo.name} data-ai-hint="group logo"/>
+                <AvatarImage src={groupInfo.imageUrl || `https://placehold.co/100x100.png`} alt={groupInfo.name} data-ai-hint="group logo" className="object-cover"/>
                 <AvatarFallback className="bg-primary text-primary-foreground text-3xl">{getInitials(groupInfo.name)}</AvatarFallback>
             </Avatar>
           </div>

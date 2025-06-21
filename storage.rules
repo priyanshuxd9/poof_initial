@@ -1,0 +1,19 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Group avatars can be read by anyone with the URL
+    match /group-avatars/{groupId}/{allPaths=**} {
+      allow read;
+      
+      // Allow write only for authenticated users on create,
+      // and if the file is an image and is less than 2MB.
+      allow create: if request.auth != null
+                    && request.resource.size < 2 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // Add rules for other paths like chat media later
+  }
+}

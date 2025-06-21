@@ -4,9 +4,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useState, useTransition } from "react";
+import React, { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Wand2, Timer, Loader2, Users, Info, Trash2 } from "lucide-react";
+import { Wand2, Timer, Loader2, Users, Trash2, ImagePlus } from "lucide-react";
+import imageCompression from 'browser-image-compression';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,8 +27,11 @@ import { generateInviteCode } from "@/lib/utils";
 import { generateGroupDescription, GenerateGroupDescriptionInput } from "@/ai/flows/generate-group-description";
 import { suggestSelfDestructTimer, SuggestSelfDestructTimerInput } from "@/ai/flows/suggest-self-destruct-timer";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase"; // Import db
-import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore"; // Import Firestore functions
+import { db, storage } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 
 const createGroupSchema = z.object({
   groupName: z.string().min(3, { message: "Group name must be at least 3 characters." }).max(50, { message: "Group name must be at most 50 characters." }),
@@ -54,12 +58,11 @@ async function createGroupInFirestore(data: CreateGroupFormValues & { inviteCode
     theme: data.groupTheme || null,
     inviteCode: data.inviteCode,
     ownerId: ownerId,
-    // members: [ownerId], // This field was redundant and likely causing permission issues
-    memberUserIds: [ownerId], // Storing UIDs for easier querying
+    memberUserIds: [ownerId],
     createdAt: serverTimestamp(),
     selfDestructAt: selfDestructAtTimestamp,
-    imageUrl: null, // Placeholder for potential future group image
-    lastActivity: serverTimestamp(), // Initialize last activity
+    imageUrl: null, // Start with null, will be updated after upload
+    lastActivity: serverTimestamp(),
   };
 
   try {
@@ -69,17 +72,27 @@ async function createGroupInFirestore(data: CreateGroupFormValues & { inviteCode
     return { id: docRef.id };
   } catch (error) {
     console.error("Error creating group in Firestore:", error);
-    throw error; // Re-throw the error to be caught by the caller
+    throw error;
   }
 }
+
+const uploadGroupImage = async (file: File, groupId: string): Promise<string> => {
+    const filePath = `group-avatars/${groupId}/${file.name}`;
+    const sRef = storageRef(storage, filePath);
+    await uploadBytes(sRef, file);
+    return getDownloadURL(sRef);
+};
 
 
 export function CreateGroupForm() {
   const [isPending, startTransition] = useTransition();
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [groupImage, setGroupImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const { user } = useAuth(); // Get the authenticated user
+  const { user } = useAuth();
 
   const form = useForm<CreateGroupFormValues>({
     resolver: zodResolver(createGroupSchema),
@@ -91,6 +104,33 @@ export function CreateGroupForm() {
       selfDestructTimerDays: 7,
     },
   });
+
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Invalid File Type", description: "Please select an image file.", variant: "destructive" });
+        return;
+      }
+      
+      setImagePreview(URL.createObjectURL(file));
+      
+      try {
+        const options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 800,
+          useWebWorker: true,
+        };
+        const compressedFile = await imageCompression(file, options);
+        setGroupImage(compressedFile);
+        toast({ title: "Image Selected", description: `Compressed from ${(file.size / 1024).toFixed(1)}KB to ${(compressedFile.size / 1024).toFixed(1)}KB.` });
+      } catch (error) {
+        console.error("Image compression error:", error);
+        setGroupImage(file);
+        toast({ title: "Compression Failed", description: "Using original image.", variant: "destructive" });
+      }
+    }
+  };
 
   const handleGenerateDescription = async () => {
     const groupName = form.getValues("groupName");
@@ -128,7 +168,7 @@ export function CreateGroupForm() {
     }
     setIsAiLoading(true);
     try {
-      const input: SuggestSelfDestructTimerInput = { topic: groupName, memberCount: 1 }; // Start with 1 member (owner)
+      const input: SuggestSelfDestructTimerInput = { topic: groupName, memberCount: 1 };
       const result = await suggestSelfDestructTimer(input);
       if (result.durationDays) {
         form.setValue("selfDestructTimerDays", Math.max(1, Math.min(31, result.durationDays)));
@@ -142,7 +182,7 @@ export function CreateGroupForm() {
   };
 
   const onSubmit = (values: CreateGroupFormValues) => {
-    if (!user || !user.uid) { // More robust check
+    if (!user || !user.uid) {
       toast({
         title: "Authentication Error",
         description: "User data is incomplete or you are not properly logged in. Please try logging in again.",
@@ -154,15 +194,24 @@ export function CreateGroupForm() {
     startTransition(async () => {
       try {
         const inviteCode = generateInviteCode();
+        // Step 1: Create the group doc in Firestore to get an ID.
         const groupData = { ...values, inviteCode };
-        // At this point, user and user.uid should be valid
-        const group = await createGroupInFirestore(groupData, user.uid); 
+        const { id: groupId } = await createGroupInFirestore(groupData, user.uid); 
+        
+        // Step 2: If there's an image, upload it using the new group ID.
+        if (groupImage) {
+          const finalImageUrl = await uploadGroupImage(groupImage, groupId);
+          
+          // Step 3: Update the group doc with the imageUrl.
+          const groupDocRef = doc(db, "groups", groupId);
+          await updateDoc(groupDocRef, { imageUrl: finalImageUrl });
+        }
         
         toast({
           title: "Group Created!",
           description: `Your group "${values.groupName}" is live. Invite code: ${inviteCode}`,
         });
-        router.push(`/groups/${group.id}`); 
+        router.push(`/groups/${groupId}`); 
       } catch (error: any) {
         toast({
           title: "Creation Failed",
@@ -176,6 +225,36 @@ export function CreateGroupForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <FormItem>
+          <FormLabel className="text-lg">Group Image</FormLabel>
+          <FormControl>
+            <div className="flex items-center gap-4">
+              <Avatar className="h-20 w-20 cursor-pointer border" onClick={() => fileInputRef.current?.click()}>
+                <AvatarImage src={imagePreview || undefined} alt="Group image preview" className="object-cover"/>
+                <AvatarFallback className="bg-muted hover:bg-muted/80 transition-colors">
+                  <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                </AvatarFallback>
+              </Avatar>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                className="hidden"
+                accept="image/png, image/jpeg, image/webp"
+                disabled={isPending || isAiLoading}
+              />
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isPending || isAiLoading}>
+                Choose Image
+              </Button>
+            </div>
+          </FormControl>
+          <FormDescription>
+            Click the icon or button to upload a group image. It will be compressed automatically.
+          </FormDescription>
+          <FormMessage />
+        </FormItem>
+
+
         <FormField
           control={form.control}
           name="groupName"
@@ -276,4 +355,3 @@ export function CreateGroupForm() {
     </Form>
   );
 }
-    
