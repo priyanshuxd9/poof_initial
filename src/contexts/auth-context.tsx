@@ -3,7 +3,7 @@
 
 import type { User as FirebaseUser } from 'firebase/auth';
 // Import the specific authentication functions from firebase/auth
-import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -19,6 +19,7 @@ interface AuthContextType {
   signIn: (email?: string, password?: string) => Promise<void>;
   signUp: (email?: string, password?: string, username?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUserContext: (data: Partial<User>) => void; // For client-side updates
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +49,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
+  const updateUserContext = (data: Partial<User>) => {
+    if (user) {
+        setUser(prevUser => prevUser ? { ...prevUser, ...data } : null);
+    }
+  };
+
   const signIn = async (email?: string, password?: string) => {
     setLoading(true);
     if (!email || !password) {
@@ -55,7 +62,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error("Email and password are required.");
     }
     try {
-      // Corrected: Call signInWithEmailAndPassword as a top-level function
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       if (userCredential.user) {
         const firebaseUser = userCredential.user;
@@ -92,7 +98,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error("Username is already taken.");
       }
 
-      // Corrected: Call createUserWithEmailAndPassword as a top-level function
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       if (firebaseUser) {
@@ -111,7 +116,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     setLoading(true);
     try {
-      await auth.signOut(); // auth.signOut() is correct for v9
+      await auth.signOut();
       setUser(null);
       router.push('/auth/signin');
     } catch (error) {
@@ -123,7 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateUserContext }}>
       {children}
     </AuthContext.Provider>
   );

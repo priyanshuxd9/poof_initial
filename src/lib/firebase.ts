@@ -1,27 +1,26 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type User as FirebaseUser } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
+import { getAuth, type User as FirebaseUser, updateProfile, deleteUser } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, updateDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Function to get the initialized Firebase app
 function getInitializedFirebaseApp(): FirebaseApp {
   if (!getApps().length) {
     const firebaseConfig = {
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY, // Reverted to process.env
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
       authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
     };
-    console.log("Firebase Config Object:", firebaseConfig); // Keep this log for now
     try {
       return initializeApp(firebaseConfig);
     } catch (e) {
       console.error("Firebase initialization critical error:", e);
       console.error("Using config:", firebaseConfig);
-      throw e; // Re-throw the error to halt execution if initialization fails
+      throw e;
     }
   }
   return getApp();
@@ -34,76 +33,88 @@ const storage = getStorage(app);
 
 export { app, auth, db, storage };
 
-// This function is kept simple as getInitializedFirebaseApp handles the core logic.
 export const ensureFirebaseInitialized = (): FirebaseApp => {
   return getInitializedFirebaseApp();
 };
 
 export const checkUsernameUnique = async (username: string): Promise<boolean> => {
   ensureFirebaseInitialized();
-  console.log("--- checkUsernameUnique CALLED for username:", username);
-  try {
-    const usernamesRef = collection(db, "usernames");
-    const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
-    const querySnapshot = await getDocs(q);
-    console.log("--- checkUsernameUnique querySnapshot empty:", querySnapshot.empty);
-    return querySnapshot.empty;
-  } catch (error) {
-    console.error("--- checkUsernameUnique Firestore Error:", error);
-    throw error;
-  }
+  const usernamesRef = collection(db, "usernames");
+  const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.empty;
 };
 
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
   ensureFirebaseInitialized();
-  console.log("--- saveUserToFirestore CALLED ---");
-  console.log("User object (FirebaseUser from Auth):", JSON.stringify(user, null, 2));
-  console.log("Username parameter to save:", username);
+  const userDocRef = doc(db, "users", user.uid);
+  const usernameDocRef = doc(db, "usernames", username.toLowerCase());
 
-  const userData = {
+  const batch = writeBatch(db);
+
+  batch.set(userDocRef, {
     uid: user.uid,
     email: user.email || null,
     username: username,
     photoURL: user.photoURL || null,
     createdAt: serverTimestamp(),
-  };
-  console.log("Attempting to write to 'users' collection with path:", `/users/${user.uid}`);
-  console.log("Data for 'users' collection:", JSON.stringify(userData, null, 2));
-  const userDocRef = doc(db, "users", user.uid);
+  });
 
-  try {
-    await setDoc(userDocRef, userData);
-    console.log("Successfully wrote to 'users' collection for UID:", user.uid);
-  } catch (error) {
-    console.error("Error writing to 'users' collection for UID:", user.uid, error);
-    throw error;
-  }
-
-  const usernameData = {
+  batch.set(usernameDocRef, {
     uid: user.uid,
     username: username,
-  };
-  const lowercaseUsername = username.toLowerCase();
-  console.log("Attempting to write to 'usernames' collection with path:", `/usernames/${lowercaseUsername}`);
-  console.log("Data for 'usernames' collection:", JSON.stringify(usernameData, null, 2));
-  const usernameDocRef = doc(db, "usernames", lowercaseUsername);
+  });
 
-  try {
-    await setDoc(usernameDocRef, usernameData);
-    console.log("Successfully wrote to 'usernames' collection for username:", lowercaseUsername);
-  } catch (error) {
-    console.error("Error writing to 'usernames' collection for username:", lowercaseUsername, error);
-    throw error;
-  }
-  console.log("--- saveUserToFirestore COMPLETED ---");
+  await batch.commit();
 };
+
+export const updateUserUsername = async (uid: string, oldUsername: string, newUsername: string) => {
+  ensureFirebaseInitialized();
+  const isUsernameUnique = await checkUsernameUnique(newUsername);
+  if (!isUsernameUnique) {
+    throw new Error("Username is already taken.");
+  }
+
+  const userDocRef = doc(db, "users", uid);
+  const oldUsernameDocRef = doc(db, "usernames", oldUsername.toLowerCase());
+  const newUsernameDocRef = doc(db, "usernames", newUsername.toLowerCase());
+
+  const batch = writeBatch(db);
+  batch.update(userDocRef, { username: newUsername });
+  batch.delete(oldUsernameDocRef);
+  batch.set(newUsernameDocRef, { uid: uid, username: newUsername });
+  
+  await batch.commit();
+  
+  if (auth.currentUser && auth.currentUser.uid === uid) {
+    await updateProfile(auth.currentUser, { displayName: newUsername });
+  }
+};
+
+
+export const deleteUserAccount = async (user: FirebaseUser) => {
+  ensureFirebaseInitialized();
+  if (!user.username) throw new Error("Username is missing, cannot delete account data.");
+
+  const userDocRef = doc(db, 'users', user.uid);
+  const usernameDocRef = doc(db, 'usernames', user.username.toLowerCase());
+  
+  const batch = writeBatch(db);
+  batch.delete(userDocRef);
+  batch.delete(usernameDocRef);
+
+  await batch.commit();
+
+  await deleteUser(user);
+};
+
 
 export interface AppUser {
   uid: string;
   username: string;
   email: string | null;
   photoURL: string | null;
-  createdAt: any; // Firestore Timestamp
+  createdAt: any;
 }
 
 export const getUsersFromIds = async (userIds: string[]): Promise<AppUser[]> => {
@@ -112,23 +123,20 @@ export const getUsersFromIds = async (userIds: string[]): Promise<AppUser[]> => 
     return [];
   }
   try {
-    // Firestore 'in' query is more efficient for up to 30 UIDs
     if (userIds.length <= 30) {
         const usersRef = collection(db, "users");
         const q = query(usersRef, where('uid', 'in', userIds));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => doc.data() as AppUser);
     } else {
-        // Fallback for more than 30 UIDs, fetching one by one
         const userDocsPromises = userIds.map(uid => getDoc(doc(db, "users", uid)));
         const userDocsSnapshots = await Promise.all(userDocsPromises);
-        const users = userDocsSnapshots
+        return userDocsSnapshots
           .filter(snap => snap.exists())
           .map(snap => snap.data() as AppUser);
-        return users;
     }
   } catch (error) {
     console.error("Error fetching users from IDs:", error);
-    return []; // Return empty array on error
+    return [];
   }
 };
