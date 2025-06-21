@@ -2,18 +2,21 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, Calendar, Crown, Users } from "lucide-react";
+import { ArrowLeft, User, Calendar, Crown, Users, ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { db, getUsersFromIds, type AppUser } from "@/lib/firebase";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { db, storage, getUsersFromIds, type AppUser } from "@/lib/firebase";
+import { doc, getDoc, Timestamp, updateDoc, serverTimestamp } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getInitials } from "@/lib/utils";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import imageCompression from 'browser-image-compression';
 
 interface GroupInfo {
   name: string;
@@ -28,10 +31,15 @@ export default function GroupInfoPage() {
   const params = useParams();
   const groupId = params.groupId as string;
   const { user: currentUser } = useAuth();
+  const { toast } = useToast();
+
   const [groupInfo, setGroupInfo] = useState<GroupInfo | null>(null);
   const [members, setMembers] = useState<AppUser[]>([]);
   const [owner, setOwner] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   useEffect(() => {
     if (!groupId) return;
@@ -76,6 +84,52 @@ export default function GroupInfoPage() {
       fetchGroupInfo();
     }
   }, [groupId, currentUser]);
+  
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid File Type", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    
+    setIsUploading(true);
+
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 800,
+        useWebWorker: true,
+      };
+      const compressedFile = await imageCompression(file, options);
+      
+      const filePath = `group-avatars/${groupId}/avatar.jpg`;
+      const sRef = storageRef(storage, filePath);
+      await uploadBytes(sRef, compressedFile);
+      const newImageUrl = await getDownloadURL(sRef);
+      
+      const groupDocRef = doc(db, "groups", groupId);
+      await updateDoc(groupDocRef, {
+        imageUrl: newImageUrl,
+        lastActivity: serverTimestamp()
+      });
+
+      setGroupInfo(prev => prev ? { ...prev, imageUrl: newImageUrl } : null);
+
+      toast({ title: "Group Icon Updated!", description: "The new icon has been saved." });
+
+    } catch (error) {
+      console.error("Error updating group icon:", error);
+      toast({ title: "Upload Failed", description: "Could not update the group icon. Please try again.", variant: "destructive" });
+    } finally {
+        setIsUploading(false);
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -128,11 +182,31 @@ export default function GroupInfoPage() {
       </Button>
       <Card className="shadow-lg">
         <CardHeader className="text-center border-b pb-6">
-          <div className="flex justify-center mb-4">
-            <Avatar className="h-20 w-20 border-4 border-primary">
+          <div className="relative flex justify-center mb-4 w-24 h-24 mx-auto">
+            <Avatar className="h-full w-full border-4 border-primary">
                 <AvatarImage src={groupInfo.imageUrl || `https://placehold.co/100x100.png`} alt={groupInfo.name} data-ai-hint="group logo" className="object-cover"/>
                 <AvatarFallback className="bg-primary text-primary-foreground text-3xl">{getInitials(groupInfo.name)}</AvatarFallback>
             </Avatar>
+            {currentUser?.uid === groupInfo.ownerId && (
+                <div 
+                    className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer group/icon"
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                >
+                    {isUploading ? (
+                        <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    ) : (
+                       <ImagePlus className="h-8 w-8 text-white group-hover/icon:scale-110 transition-transform" />
+                    )}
+                </div>
+            )}
+             <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                className="hidden"
+                accept="image/png, image/jpeg, image/webp"
+                disabled={isUploading}
+            />
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight">{groupInfo.name}</CardTitle>
           <CardDescription className="text-md max-w-prose mx-auto">{groupInfo.description}</CardDescription>
