@@ -125,9 +125,11 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
                 <Copy className="mr-2 h-4 w-4" />
                 Copy Invite Code
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Info className="mr-2 h-4 w-4" />
-                Group Info
+              <DropdownMenuItem asChild>
+                <Link href={`/groups/${group.id}/info`}>
+                  <Info className="mr-2 h-4 w-4" />
+                  Group Info
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -146,4 +148,3 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
     </div>
   );
 }
-

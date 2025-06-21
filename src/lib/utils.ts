@@ -1,6 +1,7 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { formatDistanceToNowStrict } from 'date-fns';
+import { formatDistanceToNowStrict, format, isToday, isThisYear } from 'date-fns';
 
 
 export function cn(...inputs: ClassValue[]) {
@@ -19,6 +20,24 @@ export function generateInviteCode(length: number = 8): string {
 export function formatTimeAgo(date: Date | string | number | undefined): string {
   if (!date) return '';
   return formatDistanceToNowStrict(new Date(date), { addSuffix: true });
+}
+
+export function formatDetailedTimestamp(timestamp: Date | string | number | undefined): string {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  
+  // if today, show "Today, 5:30 PM"
+  if (isToday(date)) {
+    return `Today, ${format(date, "p")}`;
+  }
+  
+  // if this year, show "Jun 1, 5:30 PM"
+  if (isThisYear(date)) {
+    return format(date, "MMM d, p");
+  }
+
+  // otherwise, show "Jun 1, 2023, 5:30 PM"
+  return format(date, "MMM d, yyyy, p");
 }
 
 export function getInitials(name?: string | null, fallback: string = "P"): string {

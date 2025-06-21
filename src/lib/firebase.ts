@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type User as FirebaseUser } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Function to get the initialized Firebase app
@@ -96,4 +96,39 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
     throw error;
   }
   console.log("--- saveUserToFirestore COMPLETED ---");
+};
+
+export interface AppUser {
+  uid: string;
+  username: string;
+  email: string | null;
+  photoURL: string | null;
+  createdAt: any; // Firestore Timestamp
+}
+
+export const getUsersFromIds = async (userIds: string[]): Promise<AppUser[]> => {
+  ensureFirebaseInitialized();
+  if (!userIds || userIds.length === 0) {
+    return [];
+  }
+  try {
+    // Firestore 'in' query is more efficient for up to 30 UIDs
+    if (userIds.length <= 30) {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where('uid', 'in', userIds));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as AppUser);
+    } else {
+        // Fallback for more than 30 UIDs, fetching one by one
+        const userDocsPromises = userIds.map(uid => getDoc(doc(db, "users", uid)));
+        const userDocsSnapshots = await Promise.all(userDocsPromises);
+        const users = userDocsSnapshots
+          .filter(snap => snap.exists())
+          .map(snap => snap.data() as AppUser);
+        return users;
+    }
+  } catch (error) {
+    console.error("Error fetching users from IDs:", error);
+    return []; // Return empty array on error
+  }
 };

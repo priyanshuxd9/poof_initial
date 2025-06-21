@@ -6,7 +6,7 @@ import { ThumbsUp, SmilePlus, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatTimeAgo, getInitials } from "@/lib/utils";
+import { formatDetailedTimestamp, getInitials } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context"; // To determine if message is from current user
 import { cn } from "@/lib/utils";
 
@@ -79,7 +79,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           </CardContent>
         </Card>
         <div className={cn("flex items-center gap-2 px-1", isCurrentUserMessage ? "justify-end" : "")}>
-          <span className="text-xs text-muted-foreground">{formatTimeAgo(message.timestamp)}</span>
+          <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
           {/* Placeholder for reactions */}
           {message.reactions && message.reactions.length > 0 && (
             <div className="flex gap-1">
