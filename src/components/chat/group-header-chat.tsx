@@ -64,11 +64,11 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
       const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
 
       if (days > 0) {
-        setTimeRemainingText(`${days}d ${hours}h left`);
+        setTimeRemainingText(`${days}d ${hours}h`);
       } else if (hours > 0) {
-        setTimeRemainingText(`${hours}h ${minutes}m left`);
+        setTimeRemainingText(`${hours}h ${minutes}m`);
       } else if (minutes > 0) {
-        setTimeRemainingText(`${minutes}m left`);
+        setTimeRemainingText(`${minutes}m`);
       } else {
         setTimeRemainingText("Poofing soon!");
       }
@@ -103,7 +103,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
           <div>
             <h1 className="text-lg font-semibold text-foreground">{group.name}</h1>
             <div className="text-xs text-muted-foreground flex items-center">
-              <Users className="h-3 w-3 mr-1" /> {group.memberCount} Members
+              <Users className="h-3 w-3 mr-1" /> {group.memberCount}
               <span className="mx-1.5">·</span> 
               <Clock className="h-3 w-3 mr-1" /> {timeRemainingText}
             </div>
