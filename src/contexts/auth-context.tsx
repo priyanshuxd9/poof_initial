@@ -3,7 +3,7 @@
 
 import type { User as FirebaseUser } from 'firebase/auth';
 // Import the specific authentication functions from firebase/auth
-import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser } from 'firebase/auth';
+import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, sendPasswordResetEmail } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -20,6 +20,7 @@ interface AuthContextType {
   signUp: (email?: string, password?: string, username?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateUserContext: (data: Partial<User>) => void; // For client-side updates
+  sendPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -127,8 +128,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const sendPasswordReset = async (email: string) => {
+    if (!email) {
+      throw new Error("Email is required.");
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error("Password reset error:", error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateUserContext }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateUserContext, sendPasswordReset }}>
       {children}
     </AuthContext.Provider>
   );

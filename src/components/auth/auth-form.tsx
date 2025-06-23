@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -32,15 +32,27 @@ const signUpSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
+const resetPasswordSchema = z.object({
+    email: z.string().email({ message: "Invalid email address." }),
+});
+
+const formSchemas = {
+    signIn: signInSchema,
+    signUp: signUpSchema,
+    resetPassword: resetPasswordSchema,
+};
+
+type AuthMode = "signIn" | "signUp" | "resetPassword";
+
 export function AuthForm() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState<AuthMode>("signIn");
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, sendPasswordReset } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
 
-  const formSchema = isSignUp ? signUpSchema : signInSchema;
+  const formSchema = formSchemas[mode];
   type FormValues = z.infer<typeof formSchema>;
 
   const form = useForm<FormValues>({
@@ -48,25 +60,35 @@ export function AuthForm() {
     defaultValues: {
       email: "",
       password: "",
-      ...(isSignUp && { username: "" }),
+      username: "",
     },
   });
+
+  useEffect(() => {
+    form.reset();
+  }, [mode, form]);
 
   const onSubmit = async (values: FormValues) => {
     startTransition(async () => {
       try {
-        if (isSignUp) {
+        if (mode === "signUp") {
           await signUp(values.email, values.password, (values as z.infer<typeof signUpSchema>).username);
           toast({ title: "Account Created", description: "Welcome to Poof! Redirecting..." });
-        } else {
+          router.push("/dashboard");
+          router.refresh();
+        } else if (mode === "signIn") {
           await signIn(values.email, values.password);
           toast({ title: "Signed In", description: "Welcome back! Redirecting..." });
+          router.push("/dashboard");
+          router.refresh();
+        } else if (mode === "resetPassword") {
+            await sendPasswordReset(values.email);
+            toast({ title: "Password Reset Email Sent", description: "Please check your inbox for instructions." });
+            setMode("signIn");
         }
-        router.push("/dashboard");
-        router.refresh(); // Ensure layout re-renders with new auth state
       } catch (error: any) {
         toast({
-          title: "Authentication Failed",
+          title: mode === "resetPassword" ? "Reset Failed" : "Authentication Failed",
           description: error.message || "An unexpected error occurred.",
           variant: "destructive",
         });
@@ -74,12 +96,30 @@ export function AuthForm() {
     });
   };
 
+  const getTitle = () => {
+    switch (mode) {
+        case "signIn": return "Sign In to Poof";
+        case "signUp": return "Create an Account";
+        case "resetPassword": return "Reset Your Password";
+    }
+  }
+  
+  const getButtonText = () => {
+    switch (mode) {
+        case "signIn": return "Sign In";
+        case "signUp": return "Sign Up";
+        case "resetPassword": return "Send Reset Link";
+    }
+  }
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <h2 className="text-2xl font-semibold text-center text-foreground">
-          {isSignUp ? "Create an Account" : "Sign In to Poof"}
+          {getTitle()}
         </h2>
+
         <FormField
           control={form.control}
           name="email"
@@ -93,7 +133,8 @@ export function AuthForm() {
             </FormItem>
           )}
         />
-        {isSignUp && (
+        
+        {mode === "signUp" && (
           <FormField
             control={form.control}
             name="username"
@@ -108,57 +149,74 @@ export function AuthForm() {
             )}
           />
         )}
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <div className="relative">
-                  <Input 
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••" 
-                    {...field} 
+
+        {mode !== 'resetPassword' && (
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Input 
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••" 
+                      {...field} 
+                      disabled={isPending}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isPending}
+                    >
+                      {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                    </Button>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {mode === 'signIn' && (
+            <div className="text-right">
+                 <Button
+                    variant="link"
+                    type="button"
+                    onClick={() => setMode("resetPassword")}
+                    className="p-0 h-auto text-sm text-muted-foreground hover:text-primary"
                     disabled={isPending}
-                  />
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isPending}
-                  >
-                    {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
-                  </Button>
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                >
+                    Forgot Password?
+                </Button>
+            </div>
+        )}
+
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSignUp ? "Sign Up" : "Sign In"}
+          {getButtonText()}
         </Button>
+
         <p className="text-sm text-center text-muted-foreground">
-          {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+          {mode === 'signIn' && "Don't have an account?"}
+          {mode === 'signUp' && "Already have an account?"}
+          {mode === 'resetPassword' && "Remember your password?"}{" "}
           <Button
             variant="link"
             type="button"
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              form.reset(); // Reset form on mode toggle
-            }}
+            onClick={() => setMode(mode === 'signUp' || mode === 'resetPassword' ? "signIn" : "signUp")}
             className="p-0 h-auto font-semibold text-primary hover:text-accent"
             disabled={isPending}
           >
-            {isSignUp ? "Sign In" : "Sign Up"}
+            {mode === 'signUp' || mode === 'resetPassword' ? "Sign In" : "Sign Up"}
           </Button>
         </p>
       </form>
     </Form>
   );
 }
-
