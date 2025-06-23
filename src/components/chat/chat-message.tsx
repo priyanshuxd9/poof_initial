@@ -72,9 +72,39 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
     }
   };
 
+  const ReactionPicker = () => (
+    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex">
+      <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50" onClick={() => handleReaction("👍")}>
+        <ThumbsUp size={14} className="text-muted-foreground" />
+      </Button>
+      <Popover open={isPickerOpen} onOpenChange={setIsPickerOpen}>
+          <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50">
+              <SmilePlus size={14} className="text-muted-foreground" />
+              </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-1 bg-background/80 backdrop-blur-md rounded-full shadow-lg border-border/40">
+              <div className="flex gap-1">
+              {availableReactions.map(emoji => (
+                  <Button
+                  key={emoji}
+                  variant="ghost"
+                  size="icon"
+                  className="text-lg rounded-full h-8 w-8 hover:bg-accent/50"
+                  onClick={() => handleReaction(emoji)}
+                  >
+                  {emoji}
+                  </Button>
+              ))}
+              </div>
+          </PopoverContent>
+      </Popover>
+    </div>
+  );
+
 
   return (
-    <div className={cn("flex gap-3 py-2 px-2 group", isCurrentUserMessage ? "justify-end" : "justify-start")}>
+    <div className={cn("flex gap-3 py-1 px-2 group", isCurrentUserMessage ? "justify-end" : "justify-start")}>
       {!isCurrentUserMessage && (
         <Avatar className="h-8 w-8 self-end">
           <AvatarImage src={senderAvatarUrl || `https://placehold.co/40x40.png`} alt={senderUsername} data-ai-hint="user avatar" />
@@ -137,35 +167,18 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
           </div>
         )}
 
-        <div className={cn("flex items-center gap-2 px-1", isCurrentUserMessage ? "justify-end" : "")}>
-          <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex">
-            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50" onClick={() => handleReaction("👍")}>
-              <ThumbsUp size={14} className="text-muted-foreground" />
-            </Button>
-            <Popover open={isPickerOpen} onOpenChange={setIsPickerOpen}>
-                <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50">
-                    <SmilePlus size={14} className="text-muted-foreground" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-1 bg-background/80 backdrop-blur-md rounded-full shadow-lg border-border/40">
-                    <div className="flex gap-1">
-                    {availableReactions.map(emoji => (
-                        <Button
-                        key={emoji}
-                        variant="ghost"
-                        size="icon"
-                        className="text-lg rounded-full h-8 w-8 hover:bg-accent/50"
-                        onClick={() => handleReaction(emoji)}
-                        >
-                        {emoji}
-                        </Button>
-                    ))}
-                    </div>
-                </PopoverContent>
-            </Popover>
-          </div>
+        <div className={cn("flex items-center gap-2 px-1", isCurrentUserMessage ? "justify-end" : "justify-start")}>
+            {isCurrentUserMessage ? (
+              <>
+                <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
+                <ReactionPicker />
+              </>
+            ) : (
+              <>
+                <ReactionPicker />
+                <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
+              </>
+            )}
         </div>
       </div>
        {isCurrentUserMessage && (
