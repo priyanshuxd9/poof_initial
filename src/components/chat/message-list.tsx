@@ -49,7 +49,7 @@ export function MessageList({ groupId, messages, membersInfo, isLoading = false,
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
         <Avatar className="h-40 w-40 mb-6 opacity-50">
-            <AvatarImage src={groupInfo?.imageUrl} alt={groupInfo?.name ?? "Group Icon"} data-ai-hint="group logo" className="object-cover"/>
+            <AvatarImage src={groupInfo?.imageUrl || `https://placehold.co/160x160.png`} alt={groupInfo?.name ?? "Group Icon"} data-ai-hint="group logo" className="object-cover"/>
             <AvatarFallback className="bg-primary text-primary-foreground text-5xl">
                 {getInitials(groupInfo?.name)}
             </AvatarFallback>
@@ -62,7 +62,7 @@ export function MessageList({ groupId, messages, membersInfo, isLoading = false,
 
 
   return (
-    <ScrollArea className="flex-1" ref={scrollAreaRef}>
+    <ScrollArea className="flex-1 h-0" ref={scrollAreaRef}>
       <div className="p-4 space-y-1" ref={viewportRef}>
         {messages.map((msg) => (
           <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo.get(msg.senderId)} />

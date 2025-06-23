@@ -88,7 +88,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
   };
 
   return (
-    <div className="bg-card border-b p-4 shadow-sm">
+    <div className="bg-card border-b p-3 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild className="mr-1 md:hidden">
