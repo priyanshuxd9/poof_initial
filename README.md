@@ -1,42 +1,67 @@
 
 # Poof - Ephemeral Group Chats
 
-Poof is a web application that allows users to create temporary, self-destructing group chats. The core idea is to provide a platform for ephemeral conversations that automatically disappear after a set timer, ensuring privacy and a clean slate.
+Poof is a modern web application for creating temporary, self-destructing group chats. It provides a secure and private platform for conversations that automatically disappear after a user-defined timer, ensuring that what's said in Poof, stays in Poof... and then vanishes.
 
 ## Core Features
 
--   **Email Authentication**: Secure user sign-up and sign-in using email and a unique username.
--   **Text Chat**: Real-time, plain text messaging within groups.
--   **Emoji Reactions**: Users can react to messages with emojis to enhance communication.
--   **Multimedia Sharing**: Share photos and videos within groups (up to 30MB per file).
--   **Unique Invite Code**: Each group has a unique, shareable invite code for easy joining (no passwords needed for invites).
--   **Self-Destruct Timer**: Groups automatically "Poof" (all content deleted and group disbanded) after a user-defined timer (1 to 31 days). A warning is displayed when 15% of the time remains.
+-   **Secure Authentication**:
+    -   User sign-up and sign-in with email, a unique username, and password.
+    -   Secure session management with Firebase Authentication.
+    -   Password reset functionality.
+-   **User Profiles**:
+    -   Users can update their username.
+    -   Customizable profile pictures with automatic image compression on upload.
+-   **Group Management**:
+    -   **Create Groups**: Easily start new groups with a name, description, and custom icon.
+    -   **AI-Powered Assistance**:
+        -   Generate creative group descriptions based on the group's name, purpose, and theme.
+        -   Get AI-driven suggestions for an appropriate self-destruct timer duration.
+    -   **Join Groups**: Seamlessly join existing groups using a unique, shareable 8-character invite code.
+    -   **Group Info**: A dedicated page to view group details, including the creator and a list of all members.
+-   **Real-Time Chat**:
+    -   Instant text messaging within groups powered by Firestore's real-time capabilities.
+    -   **Emoji Reactions**: React to any message with a thumbs-up or a selection of other emojis.
+    -   Real-time display of user avatars and usernames, which update instantly if a user changes their profile.
+-   **Self-Destruct Timer**:
+    -   Each group has a mandatory self-destruct timer, configurable from 1 to 31 days.
+    -   A progress bar in the chat header shows the remaining time.
+    -   A prominent warning is displayed when less than 15% of the group's lifetime remains.
+-   **Dashboard**:
+    -   A personalized dashboard lists all of the user's active groups.
+    -   Groups are sorted by their expiration date, showing which will "Poof" soonest.
+-   **Modern UI/UX**:
+    -   Clean, responsive interface that works on desktop and mobile.
+    -   Light and Dark mode support, with an option to follow the system theme.
+    -   Polished components with smooth transitions and a professional feel.
+    -   Toasts and notifications for a better user experience.
 
 ## Tech Stack
 
 This project is built with a modern, robust tech stack:
 
 -   **Frontend**:
-    -   **Next.js**: React framework for server-side rendering, static site generation, and more (using App Router).
+    -   **Next.js**: React framework for server-side rendering and static site generation (using App Router).
     -   **React**: JavaScript library for building user interfaces.
     -   **TypeScript**: Superset of JavaScript that adds static typing.
 -   **UI & Styling**:
     -   **ShadCN UI**: Re-usable UI components built on Radix UI and Tailwind CSS.
     -   **Tailwind CSS**: A utility-first CSS framework for rapid UI development.
     -   **Lucide React**: Library for beautiful and consistent icons.
+    -   **date-fns**: For elegant and reliable date formatting.
 -   **Backend & Database**:
     -   **Firebase**:
         -   **Authentication**: Manages user sign-up, sign-in, and sessions.
-        -   **Firestore**: NoSQL database for storing group information, messages, and user data (Note: Currently using a mock implementation in `src/lib/firebase.ts`).
-        -   **Storage**: For storing multimedia files shared in chats (Note: Currently using a mock implementation).
+        -   **Firestore**: NoSQL database for storing group information, messages, and user data.
+        -   **Storage**: For storing user profile pictures and group icons.
 -   **Artificial Intelligence**:
-    -   **Genkit (by Firebase)**: Toolkit for building AI-powered features, used for:
-        -   Generating group descriptions.
-        -   Suggesting self-destruct timer durations.
+    -   **Genkit (by Firebase)**: Toolkit for building AI-powered features, connected to Google's Gemini models.
 -   **State Management**:
-    -   React Context API (for authentication state).
+    -   React Context API (for global authentication state).
 -   **Forms**:
-    -   React Hook Form with Zod for validation.
+    -   React Hook Form with Zod for robust form validation.
+-   **Utilities**:
+    -   `browser-image-compression`: For client-side image compression to reduce storage and bandwidth.
 
 ## Styling Guidelines
 
@@ -47,22 +72,47 @@ The app aims for a clean, modern, and user-friendly interface:
 -   **Accent Color**: Dark Blue (`#0B4763`, `hsl(201 81% 21%)`) - Highlights interactive elements and important notifications.
 -   **Font**: Poppins - Clean and readable for clear communication.
 -   **Icons**: Lucide React - Simple, outline-style icons for a minimalist design.
--   **Layout**: Clean, uncluttered, focusing on chat content. Responsive design for various screen sizes.
--   **Animations**: Smooth transitions and subtle animations for a polished user experience.
 
 ## Getting Started
+
+Follow these steps to set up and run the project locally.
 
 ### Prerequisites
 
 -   Node.js (v18 or later recommended)
 -   npm or yarn
+-   A Firebase project
 
-### Setup
+### 1. Firebase Project Setup
+
+Before running the app, you need to set up a Firebase project:
+
+1.  Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project.
+2.  In the project dashboard, go to the **Build** section in the left sidebar.
+3.  **Authentication**:
+    -   Enable Authentication.
+    -   On the "Sign-in method" tab, enable the **Email/Password** provider.
+4.  **Firestore Database**:
+    -   Create a new Firestore database.
+    -   Start in **production mode**. This is crucial for security.
+    -   After creation, go to the **Rules** tab, delete the default rules, and paste the entire content of the `firestore.rules` file from this repository. Publish the changes.
+5.  **Storage**:
+    -   Enable Cloud Storage.
+    -   Follow the prompts to create a storage bucket.
+    -   After creation, go to the **Rules** tab, delete the default rules, and paste the entire content of the `storage.rules` file from this repository. Publish the changes.
+6.  **Get Web App Credentials**:
+    -   Go to your Project Settings (click the gear icon).
+    -   In the "General" tab, scroll down to "Your apps".
+    -   Click the `</>` icon to add a new Web app.
+    -   Give it a nickname and register the app.
+    -   Firebase will provide you with a `firebaseConfig` object. You will need these values for the next step.
+
+### 2. Local Installation
 
 1.  **Clone the repository**:
     ```bash
-    git clone <repository-url>
-    cd poof-app 
+    git clone https://github.com/your-username/poof-app.git
+    cd poof-app
     ```
 
 2.  **Install dependencies**:
@@ -73,9 +123,10 @@ The app aims for a clean, modern, and user-friendly interface:
     ```
 
 3.  **Set up Environment Variables**:
-    Create a `.env` file in the root of the project. For Firebase connectivity, you would typically add your Firebase project configuration keys here.
-    Example `.env` file:
+    Create a `.env` file in the root of the project and populate it with your Firebase and Google AI credentials.
+
     ```env
+    # Firebase Configuration - Get these from your Firebase project settings
     NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
     NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
@@ -84,54 +135,60 @@ The app aims for a clean, modern, and user-friendly interface:
     NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
     # For Genkit (Google AI Studio / Vertex AI)
+    # Get this from https://aistudio.google.com/app/apikey
     GOOGLE_API_KEY=your_google_ai_api_key
     ```
-    *Note: The current `src/lib/firebase.ts` uses a mock implementation. For a real Firebase backend, you'll need to replace the mock and provide actual Firebase config values.*
 
-4.  **Run the development server**:
-    This command starts the Next.js development server.
+### 3. Running the Application
+
+This project requires two separate development servers to be running simultaneously: one for the Next.js frontend and one for the Genkit AI backend.
+
+1.  **Run the Next.js development server**:
+    This command starts the main application.
     ```bash
     npm run dev
     ```
     The application will be accessible at `http://localhost:9002`.
 
-5.  **Run the Genkit development server** (for AI features):
-    Open a new terminal and run:
+2.  **Run the Genkit development server**:
+    Open a **new terminal window** in the same project directory and run:
     ```bash
-    npm run genkit:dev
-    # or for watching changes
     npm run genkit:watch
     ```
-    Genkit typically starts on `http://localhost:4000`.
+    This starts the Genkit server (typically on `http://localhost:4000`) and watches for changes in your AI flow files.
+
+You're all set! You can now access the app in your browser.
 
 ## Project Structure
 
 -   `src/app/`: Next.js App Router pages and layouts.
-    -   `(app)/`: Authenticated routes (dashboard, groups).
-    -   `auth/`: Authentication related pages (sign-in).
+    -   `(app)/`: Authenticated routes (dashboard, groups, profile, etc.).
+    -   `auth/`: Authentication pages (sign-in).
+    -   `layout.tsx`: The root layout for the entire application.
+    -   `page.tsx`: The landing page that redirects users.
 -   `src/components/`: Reusable UI components.
     -   `auth/`: Authentication form.
-    -   `chat/`: Components for the chat interface.
-    -   `groups/`: Components for group creation and display.
-    -   `shared/`: Common components like Logo, AppHeader.
-    -   `ui/`: ShadCN UI components.
+    -   `chat/`: Components for the chat interface (message list, input, header).
+    -   `groups/`: Components for group creation and joining.
+    -   `shared/`: Common components like the Logo and AppHeader.
+    -   `ui/`: ShadCN UI components (Button, Card, etc.).
 -   `src/contexts/`: React Context API for global state (e.g., `auth-context.tsx`).
--   `src/hooks/`: Custom React hooks (e.g., `use-toast.ts`, `use-mobile.ts`).
--   `src/lib/`: Utility functions and Firebase setup (`firebase.ts`, `utils.ts`).
--   `src/ai/`: Genkit configuration and flows.
+-   `src/hooks/`: Custom React hooks (`use-toast.ts`, `use-mobile.ts`).
+-   `src/lib/`: Core utilities and Firebase setup (`firebase.ts`, `utils.ts`).
+-   `src/ai/`: Genkit configuration and AI flows.
     -   `flows/`: Specific AI-powered flows (e.g., `generate-group-description.ts`).
     -   `genkit.ts`: Genkit initialization.
+-   `firestore.rules`: Security rules for the Firestore database.
+-   `storage.rules`: Security rules for Cloud Storage.
 -   `public/`: Static assets.
 -   `tailwind.config.ts`: Tailwind CSS configuration.
--   `next.config.ts`: Next.js configuration.
 
 ## Available Scripts
 
--   `npm run dev`: Starts the Next.js development server (with Turbopack on port 9002).
+-   `npm run dev`: Starts the Next.js development server.
 -   `npm run build`: Builds the application for production.
 -   `npm run start`: Starts a Next.js production server.
--   `npm run lint`: Lints the project files using Next.js's built-in ESLint configuration.
+-   `npm run lint`: Lints the project files.
 -   `npm run typecheck`: Runs TypeScript type checking.
 -   `npm run genkit:dev`: Starts the Genkit development server.
 -   `npm run genkit:watch`: Starts the Genkit development server with file watching.
-
