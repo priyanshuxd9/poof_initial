@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from "next-themes";
 import { useRouter } from 'next/navigation';
-import { Loader2, LogOut, Moon, Sun, Trash2, Laptop } from "lucide-react";
+import { Loader2, LogOut, Moon, Sun, Trash2, Laptop, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { deleteUserAccount } from '@/lib/firebase';
+import { Slider } from '@/components/ui/slider';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -30,6 +31,22 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [fontSize, setFontSize] = useState(100);
+
+  // Load initial font size from localStorage
+  useEffect(() => {
+    const savedSize = localStorage.getItem('app-font-size');
+    if (savedSize) {
+      setFontSize(parseInt(savedSize, 10));
+    }
+  }, []);
+
+  const handleFontSizeChange = (value: number[]) => {
+    const newSize = value[0];
+    setFontSize(newSize);
+    document.documentElement.style.fontSize = `${newSize}%`;
+    localStorage.setItem('app-font-size', newSize.toString());
+  };
 
   const handleDeleteAccount = async () => {
     if (!user) {
@@ -82,6 +99,29 @@ export default function SettingsPage() {
                 </Label>
               </div>
             </RadioGroup>
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl">Font Size</CardTitle>
+            <CardDescription>
+              Adjust the text size for the entire application.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4 pt-2">
+              <Scale className="h-5 w-5 text-muted-foreground" />
+              <Slider
+                value={[fontSize]}
+                onValueChange={handleFontSizeChange}
+                min={80}
+                max={120}
+                step={10}
+                className="flex-1"
+              />
+              <span className="text-base font-semibold w-16 text-center">{fontSize}%</span>
+            </div>
           </CardContent>
         </Card>
 
