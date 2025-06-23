@@ -7,7 +7,7 @@ import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPasswo
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique, db, storage, updateUserProfilePhoto } from '@/lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 export interface User extends FirebaseUser {
@@ -34,25 +34,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     ensureFirebaseInitialized();
-    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        const userDocRef = doc(db, "users", firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        let appUsername = firebaseUser.displayName;
-        let photoURL = firebaseUser.photoURL;
+    // This will hold the listener unsubscribe function, so we can call it on cleanup.
+    let userDocListenerUnsubscribe: (() => void) | null = null;
 
-        if (userDocSnap.exists()) {
-          const data = userDocSnap.data();
-          appUsername = data.username || appUsername;
-          photoURL = data.photoURL || photoURL;
-        }
-        setUser({ ...firebaseUser, username: appUsername || undefined, photoURL: photoURL || null });
-      } else {
-        setUser(null);
+    const authStateUnsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      // If a previous user doc listener exists, unsubscribe from it
+      if (userDocListenerUnsubscribe) {
+        userDocListenerUnsubscribe();
       }
-      setLoading(false);
+
+      if (firebaseUser) {
+        setLoading(true); // Set loading while we fetch/listen for user doc
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        
+        // Set up the real-time listener
+        userDocListenerUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const userData = docSnap.data();
+            // Combine the latest auth object with the latest firestore data
+            setUser({
+              ...firebaseUser,
+              username: userData.username || firebaseUser.displayName || undefined,
+              photoURL: userData.photoURL || firebaseUser.photoURL || null,
+            });
+          } else {
+            // This case might happen if user is authenticated but firestore doc creation failed
+            // We can still set the user with basic auth info
+            setUser({ ...firebaseUser });
+          }
+          setLoading(false);
+        }, (error) => {
+            console.error("Error listening to user document:", error);
+            setUser({ ...firebaseUser }); // Fallback to auth info
+            setLoading(false);
+        });
+
+      } else {
+        // No user is signed in
+        setUser(null);
+        setLoading(false);
+      }
     });
-    return () => unsubscribe();
+
+    // Cleanup function for the effect
+    return () => {
+      authStateUnsubscribe();
+      if (userDocListenerUnsubscribe) {
+        userDocListenerUnsubscribe();
+      }
+    };
   }, []);
 
   const updateUserContext = (data: Partial<User>) => {
@@ -72,7 +102,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     await updateUserProfilePhoto(user.uid, newPhotoURL);
     
-    // Update context state
+    // The onSnapshot listener will automatically update the context state,
+    // so a manual call to updateUserContext is no longer strictly necessary here,
+    // but it can provide a slightly faster UI update perception.
     updateUserContext({ photoURL: newPhotoURL });
   };
 
@@ -83,27 +115,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error("Email and password are required.");
     }
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      if (userCredential.user) {
-        const firebaseUser = userCredential.user;
-        const userDocRef = doc(db, "users", firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        let appUsername = firebaseUser.displayName;
-        let photoURL = firebaseUser.photoURL;
-
-        if (userDocSnap.exists()) {
-          const data = userDocSnap.data();
-          appUsername = data.username || appUsername;
-          photoURL = data.photoURL || photoURL;
-        }
-        setUser({ ...firebaseUser, username: appUsername || undefined, photoURL: photoURL || null });
-      }
+      // The onAuthStateChanged listener will handle setting the user state.
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
       console.error("Sign in error:", error);
+      setLoading(false); // Ensure loading is turned off on error
       throw error;
-    } finally {
-      setLoading(false);
-    }
+    } 
+    // No finally block needed as onAuthStateChanged handles success
   };
 
   const signUp = async (email?: string, password?: string, username?: string) => {
@@ -127,21 +146,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         await updateProfile(firebaseUser, { displayName: username });
         await saveUserToFirestore(firebaseUser, username);
-        setUser({ ...firebaseUser, username });
+        // The onAuthStateChanged listener will handle setting the user state.
       }
     } catch (error) {
       console.error("Sign up error:", error);
+      setLoading(false); // Ensure loading is turned off on error
       throw error;
-    } finally {
-      setLoading(false);
     }
+    // No finally block needed as onAuthStateChanged handles success
   };
 
   const signOut = async () => {
     setLoading(true);
     try {
       await auth.signOut();
-      setUser(null);
+      // The onAuthStateChanged listener will handle setting user to null.
       router.push('/auth/signin');
     } catch (error) {
       console.error("Sign out error:", error);
