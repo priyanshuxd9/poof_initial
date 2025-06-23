@@ -1,21 +1,19 @@
 
 "use client";
 
+import React, { useState } from 'react';
 import Image from "next/image";
-import { ThumbsUp, SmilePlus, MoreHorizontal } from "lucide-react";
+import { ThumbsUp, SmilePlus } from "lucide-react";
+import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { db, type AppUser } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDetailedTimestamp, getInitials } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
-import { type AppUser } from "@/lib/firebase";
-
-export interface MessageReaction {
-  emoji: string;
-  count: number;
-  users: string[];
-}
 
 export interface ChatMessageData {
   id: string;
@@ -24,25 +22,56 @@ export interface ChatMessageData {
   mediaUrl?: string;
   mediaType?: "image" | "video";
   timestamp: string | Date;
-  reactions?: MessageReaction[];
+  reactions?: { [emoji: string]: string[] }; // Map of emoji to array of user UIDs
 }
 
 interface ChatMessageProps {
   message: ChatMessageData;
   senderInfo?: AppUser;
+  groupId: string;
 }
 
-export function ChatMessage({ message, senderInfo }: ChatMessageProps) {
+export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) {
   const { user: currentUser } = useAuth();
+  const { toast } = useToast();
   const isCurrentUserMessage = message.senderId === currentUser?.uid;
-
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  
   const senderUsername = senderInfo?.username || '...';
   const senderAvatarUrl = senderInfo?.photoURL;
+  const availableReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-  // TODO: Implement reaction handling logic
-  const handleReaction = (emoji: string) => {
-    console.log(`Reacted with ${emoji} to message ${message.id}`);
+
+  const handleReaction = async (emoji: string) => {
+    if (!currentUser || !groupId) return;
+    setIsPickerOpen(false); // Close picker after reacting
+
+    const messageRef = doc(db, "groups", groupId, "messages", message.id);
+    const userHasReacted = message.reactions?.[emoji]?.includes(currentUser.uid);
+    const fieldPath = `reactions.${emoji}`;
+    
+    try {
+        if (userHasReacted) {
+            // Atomically remove a user's ID from the array.
+            await updateDoc(messageRef, {
+                [fieldPath]: arrayRemove(currentUser.uid)
+            });
+        } else {
+            // Atomically add a new user's ID to the array.
+            await updateDoc(messageRef, {
+                [fieldPath]: arrayUnion(currentUser.uid)
+            });
+        }
+    } catch (error) {
+        console.error("Error updating reaction:", error);
+        toast({
+            title: "Reaction Failed",
+            description: "Could not save your reaction. Please try again.",
+            variant: "destructive"
+        });
+    }
   };
+
 
   return (
     <div className={cn("flex gap-3 py-2 px-2 group", isCurrentUserMessage ? "justify-end" : "justify-start")}>
@@ -54,7 +83,7 @@ export function ChatMessage({ message, senderInfo }: ChatMessageProps) {
           </AvatarFallback>
         </Avatar>
       )}
-      <div className={cn("max-w-[70%] space-y-1", isCurrentUserMessage ? "items-end" : "items-start")}>
+      <div className={cn("max-w-[70%] space-y-1 flex flex-col", isCurrentUserMessage ? "items-end" : "items-start")}>
         <Card className={cn(
             "rounded-2xl shadow-sm", 
             isCurrentUserMessage ? "bg-primary text-primary-foreground rounded-br-none" : "bg-card text-card-foreground rounded-bl-none"
@@ -81,28 +110,61 @@ export function ChatMessage({ message, senderInfo }: ChatMessageProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* Display existing reactions */}
+        {message.reactions && Object.keys(message.reactions).length > 0 && (
+          <div className="flex gap-1.5 flex-wrap mt-1 px-2" style={{ clear: 'both' }}>
+            {Object.entries(message.reactions).map(([emoji, users]) => {
+              if (users.length === 0) return null;
+              const currentUserReacted = users.includes(currentUser?.uid ?? '');
+              return (
+                <button
+                  key={emoji}
+                  onClick={() => handleReaction(emoji)}
+                  className={cn(
+                    "flex items-center gap-1 text-xs rounded-full px-2 py-0.5 transition-colors",
+                    currentUserReacted 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted hover:bg-muted/80'
+                  )}
+                  aria-label={`React with ${emoji}`}
+                >
+                  <span>{emoji}</span>
+                  <span className="font-medium">{users.length}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         <div className={cn("flex items-center gap-2 px-1", isCurrentUserMessage ? "justify-end" : "")}>
           <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
-          {/* Placeholder for reactions */}
-          {message.reactions && message.reactions.length > 0 && (
-            <div className="flex gap-1">
-              {message.reactions.slice(0, 3).map(reaction => (
-                <Button key={reaction.emoji} variant="ghost" size="xs" className="p-1 h-auto text-xs rounded-full bg-muted hover:bg-muted/80">
-                  {reaction.emoji} <span className="ml-0.5">{reaction.count}</span>
-                </Button>
-              ))}
-            </div>
-          )}
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex">
             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50" onClick={() => handleReaction("👍")}>
               <ThumbsUp size={14} className="text-muted-foreground" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50">
-              <SmilePlus size={14} className="text-muted-foreground" />
-            </Button>
-             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50">
-              <MoreHorizontal size={14} className="text-muted-foreground" />
-            </Button>
+            <Popover open={isPickerOpen} onOpenChange={setIsPickerOpen}>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-muted/50">
+                    <SmilePlus size={14} className="text-muted-foreground" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-1 bg-background/80 backdrop-blur-md rounded-full shadow-lg border-border/40">
+                    <div className="flex gap-1">
+                    {availableReactions.map(emoji => (
+                        <Button
+                        key={emoji}
+                        variant="ghost"
+                        size="icon"
+                        className="text-lg rounded-full h-8 w-8 hover:bg-accent/50"
+                        onClick={() => handleReaction(emoji)}
+                        >
+                        {emoji}
+                        </Button>
+                    ))}
+                    </div>
+                </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>

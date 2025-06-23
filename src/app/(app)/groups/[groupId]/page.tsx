@@ -73,6 +73,7 @@ export default function GroupChatPage() {
           mediaUrl: data.mediaUrl,
           mediaType: data.mediaType,
           timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+          reactions: data.reactions,
         });
         if (data.senderId) {
             senderIds.add(data.senderId);
@@ -122,6 +123,7 @@ export default function GroupChatPage() {
             timestamp: serverTimestamp(),
             mediaUrl: null,
             mediaType: null,
+            reactions: {},
         });
         
         const groupDocRef = doc(db, 'groups', groupId);
@@ -187,7 +189,7 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <GroupHeaderChat group={groupInfo} />
-      <MessageList messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} />
+      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} />
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </div>
   );

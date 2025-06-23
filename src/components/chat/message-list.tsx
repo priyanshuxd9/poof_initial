@@ -9,12 +9,13 @@ import Image from "next/image";
 import { type AppUser } from "@/lib/firebase";
 
 interface MessageListProps {
+  groupId: string;
   messages: ChatMessageData[];
   membersInfo: Map<string, AppUser>;
   isLoading?: boolean;
 }
 
-export function MessageList({ messages, membersInfo, isLoading = false }: MessageListProps) {
+export function MessageList({ groupId, messages, membersInfo, isLoading = false }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +57,7 @@ export function MessageList({ messages, membersInfo, isLoading = false }: Messag
     <ScrollArea className="flex-1" ref={scrollAreaRef}>
       <div className="p-4 space-y-1" ref={viewportRef}>
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} senderInfo={membersInfo.get(msg.senderId)} />
+          <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo.get(msg.senderId)} />
         ))}
       </div>
     </ScrollArea>
