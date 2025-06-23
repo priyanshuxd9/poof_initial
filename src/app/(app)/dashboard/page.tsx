@@ -196,12 +196,12 @@ export default function DashboardPage() {
             <Button asChild size="lg" className="flex-1 sm:flex-auto">
                 <Link href="/groups/create">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Create
+                    Create Group
                 </Link>
             </Button>
             <Button variant="outline" size="lg" onClick={() => setIsJoinDialogOpen(true)} className="flex-1 sm:flex-auto">
                 <LogIn className="mr-2 h-4 w-4" />
-                Join
+                Join Group
             </Button>
         </div>
       </div>

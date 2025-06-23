@@ -189,7 +189,7 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <GroupHeaderChat group={groupInfo} />
-      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} />
+      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} groupInfo={groupInfo} />
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </div>
   );

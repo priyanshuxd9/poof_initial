@@ -5,17 +5,20 @@ import React, { useEffect, useRef } from "react";
 import { ChatMessage, type ChatMessageData } from "./chat-message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import Image from "next/image";
 import { type AppUser } from "@/lib/firebase";
+import { type ChatGroupHeaderInfo } from "@/components/chat/group-header-chat";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitials } from "@/lib/utils";
 
 interface MessageListProps {
   groupId: string;
   messages: ChatMessageData[];
   membersInfo: Map<string, AppUser>;
   isLoading?: boolean;
+  groupInfo: ChatGroupHeaderInfo | null;
 }
 
-export function MessageList({ groupId, messages, membersInfo, isLoading = false }: MessageListProps) {
+export function MessageList({ groupId, messages, membersInfo, isLoading = false, groupInfo }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +48,12 @@ export function MessageList({ groupId, messages, membersInfo, isLoading = false 
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-        <Image src="https://placehold.co/200x200.png" alt="Empty Chat" width={150} height={150} className="opacity-50 mb-4" data-ai-hint="empty chat illustration"/>
+        <Avatar className="h-40 w-40 mb-6 opacity-50">
+            <AvatarImage src={groupInfo?.imageUrl} alt={groupInfo?.name ?? "Group Icon"} data-ai-hint="group logo" className="object-cover"/>
+            <AvatarFallback className="bg-primary text-primary-foreground text-5xl">
+                {getInitials(groupInfo?.name)}
+            </AvatarFallback>
+        </Avatar>
         <h3 className="text-xl font-semibold text-foreground">It's quiet in here...</h3>
         <p className="text-muted-foreground">Be the first to send a message in this Poof group!</p>
       </div>
