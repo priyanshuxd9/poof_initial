@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: var(--font-poppins), sans-serif;
-}
-
 @layer base {
   :root {
     --background: 202 93% 94%; /* #E3F2FD - Light Desaturated Blue */

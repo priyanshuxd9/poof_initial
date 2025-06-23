@@ -1,16 +1,16 @@
 
 import type { Metadata } from 'next';
-import { Poppins } from 'next/font/google';
+import { Nova_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ThemeProvider } from 'next-themes';
 import { FontSizeManager } from '@/components/shared/font-size-manager';
 
-const poppins = Poppins({
+const novaMono = Nova_Mono({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-poppins',
+  weight: ['400'],
+  variable: '--font-nova-mono',
 });
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${poppins.variable} font-sans antialiased`}>
+      <body className={`${novaMono.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
