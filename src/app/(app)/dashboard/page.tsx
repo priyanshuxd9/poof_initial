@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { PlusCircle, ListChecks, Info, Clock } from "lucide-react";
+import { PlusCircle, ListChecks, Info, Clock, LogIn, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,6 +14,13 @@ import { useState, useEffect } from "react";
 import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 
 // Group type definition
 export interface Group {
@@ -111,6 +118,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+  const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -191,15 +199,31 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
           <p className="text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
-        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/groups/create">
-              <PlusCircle className="mr-2 h-5 w-5" /> Create Group
-            </Link>
-          </Button>
-          <JoinGroupDialog />
+        <div className="flex w-full sm:w-auto">
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="lg" className="w-full sm:w-auto">
+                Actions
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem asChild>
+                <Link href="/groups/create">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  <span>Create Group</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setIsJoinDialogOpen(true)}>
+                <LogIn className="mr-2 h-4 w-4" />
+                <span>Join with Code</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      <JoinGroupDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen} />
 
       {groups.length === 0 ? (
         <Alert className="max-w-2xl mx-auto shadow-md">
