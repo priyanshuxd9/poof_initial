@@ -91,6 +91,17 @@ export const updateUserUsername = async (uid: string, oldUsername: string, newUs
   }
 };
 
+export const updateUserProfilePhoto = async (uid: string, photoURL: string) => {
+  ensureFirebaseInitialized();
+  const userDocRef = doc(db, "users", uid);
+  
+  await updateDoc(userDocRef, { photoURL });
+
+  if (auth.currentUser && auth.currentUser.uid === uid) {
+    await updateProfile(auth.currentUser, { photoURL });
+  }
+};
+
 
 export const deleteUserAccount = async (user: FirebaseUser) => {
   ensureFirebaseInitialized();

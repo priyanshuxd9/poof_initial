@@ -82,11 +82,9 @@ export function CreateGroupForm() {
         };
         const compressedFile = await imageCompression(file, options);
         setGroupImage(compressedFile);
-        toast({ title: "Image Selected", description: `Compressed from ${(file.size / 1024).toFixed(1)}KB to ${(compressedFile.size / 1024).toFixed(1)}KB.` });
       } catch (error) {
         console.error("Image compression error:", error);
         setGroupImage(file);
-        toast({ title: "Compression Failed", description: "Using original image.", variant: "destructive" });
       }
     }
   };

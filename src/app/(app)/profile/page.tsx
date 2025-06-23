@@ -4,8 +4,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import React, { useState, useTransition } from "react";
-import { Loader2, User } from "lucide-react";
+import React, { useState, useTransition, useRef } from "react";
+import { Loader2, User, ImagePlus } from "lucide-react";
+import imageCompression from 'browser-image-compression';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,9 +28,11 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
-  const { user, updateUserContext, loading: authLoading } = useAuth();
+  const { user, updateUserContext, updateProfilePicture, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -38,6 +41,36 @@ export default function ProfilePage() {
     },
   });
   
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid File Type", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 800,
+        useWebWorker: true,
+      };
+      const compressedFile = await imageCompression(file, options);
+      await updateProfilePicture(compressedFile);
+      toast({ title: "Profile Picture Updated!", description: "Your new avatar has been saved." });
+    } catch (error: any) {
+      console.error("Error updating profile picture:", error);
+      toast({ title: "Upload Failed", description: "Could not update your profile picture. Please try again.", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const onSubmit = (values: ProfileFormValues) => {
     if (!user || !user.uid || !user.username) {
         toast({ title: "Error", description: "Not logged in or user data is missing.", variant: "destructive" });
@@ -72,12 +105,32 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="flex items-center space-x-4">
-            <Avatar className="h-20 w-20 border-2 border-primary">
-              <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} alt={user?.username || "user"} data-ai-hint="profile avatar" />
-              <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                {getInitials(user?.username || user?.email)}
-              </AvatarFallback>
-            </Avatar>
+             <div className="relative">
+                <Avatar className="h-20 w-20 border-2 border-primary">
+                  <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} alt={user?.username || "user"} data-ai-hint="profile avatar" />
+                  <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                      {getInitials(user?.username || user?.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <div 
+                    className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer group/icon"
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                >
+                    {isUploading ? (
+                        <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    ) : (
+                       <ImagePlus className="h-8 w-8 text-white group-hover/icon:scale-110 transition-transform" />
+                    )}
+                </div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                    className="hidden"
+                    accept="image/png, image/jpeg, image/webp"
+                    disabled={isUploading}
+                />
+            </div>
             <div>
               <h2 className="text-2xl font-semibold">{user?.username}</h2>
               <p className="text-muted-foreground">{user?.email}</p>
