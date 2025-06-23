@@ -145,7 +145,7 @@ export default function GroupChatPage() {
 
   if (isLoadingGroup) {
     return (
-      <div className="flex flex-col h-screen">
+      <div className="flex flex-col h-full">
         {/* Skeleton for Header */}
         <div className="bg-card border-b p-4 shadow-sm">
           <div className="flex items-center justify-between">
@@ -183,11 +183,11 @@ export default function GroupChatPage() {
   }
 
   if (!groupInfo) {
-    return <div className="flex items-center justify-center h-screen text-xl text-destructive">Group not found, it may have expired, or you don't have access.</div>;
+    return <div className="flex items-center justify-center h-full text-xl text-destructive">Group not found, it may have expired, or you don't have access.</div>;
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-full bg-background">
       <GroupHeaderChat group={groupInfo} />
       <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} groupInfo={groupInfo} />
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
