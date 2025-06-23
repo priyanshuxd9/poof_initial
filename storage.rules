@@ -1,31 +1,26 @@
-
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Rules for Group Avatars
-    match /group-avatars/{groupId}/avatar.jpg {
-      // Anyone can read, as these are public-facing URLs
-      allow read: if true;
-
-      // Write (create or update) is more complex
-      allow write: if request.auth != null
-                    && request.resource.size < 2 * 1024 * 1024 // 2MB limit
-                    && request.resource.contentType.matches('image/.*')
-                    && (
-                      // On CREATE, the firestore doc doesn't exist yet.
-                      // We rely on firestore rules to secure the creation process.
-                      !exists(/databases/$(database)/documents/groups/$(groupId)) ||
-                      
-                      // On UPDATE, the firestore doc must exist, and we must be the owner.
-                      get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid
-                    );
+    // User Avatars: Allow users to read/write their own avatar.
+    match /user-avatars/{userId}/avatar.jpg {
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // You can add rules for chat media later, for example:
-    // match /group-media/{groupId}/{messageId} {
-    //   allow read, write: if get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
-    // }
+
+    // Group Avatars:
+    match /group-avatars/{groupId}/avatar.jpg {
+      // Anyone can read group avatars.
+      allow read;
+
+      // Allow write if:
+      // 1. The user is authenticated, and the group document doesn't exist yet (for creation).
+      // OR
+      // 2. The user is the owner of the existing group (for updates).
+      allow write: if request.auth != null &&
+        (!exists(/databases/$(database)/documents/groups/$(groupId)) ||
+          get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid);
+    }
   }
 }

@@ -1,85 +1,48 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
-    function isAuth() {
-      return request.auth != null;
-    }
-
-    function isGroupMember(groupData) {
-      return request.auth.uid in groupData.memberUserIds;
-    }
-
-    function isGroupOwner(groupData) {
-      return request.auth.uid == groupData.ownerId;
-    }
-
-    function groupIsActive(groupData) {
-      return request.time < groupData.selfDestructAt;
-    }
-
-    // Main Collections
-    match /groups/{groupId} {
-      // Allow authenticated users to query for groups (for dashboard and joining)
-      allow list: if isAuth();
-
-      // Only allow a member of an active group to read its full data
-      allow get: if isAuth() && isGroupMember(resource.data) && groupIsActive(resource.data);
-
-      // Rules for creating a new group document
-      allow create: if isAuth()
-                    && request.resource.data.ownerId == request.auth.uid
-                    && request.resource.data.memberUserIds == [request.auth.uid]
-                    && groupIsActive(request.resource.data);
-
-      // Rules for updating an existing group document
-      allow update: if isAuth() && groupIsActive(resource.data) && (
-        // SCENARIO 1: A user is joining the group
-        (
-          !isGroupMember(resource.data) &&
-          request.resource.data.memberUserIds == resource.data.memberUserIds.append(request.auth.uid) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUserIds', 'lastActivity'])
-        ) ||
-        // SCENARIO 2: The group owner is updating the image URL
-        (
-          isGroupOwner(resource.data) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl'])
-        ) ||
-        // SCENARIO 3: A member is sending a message, which updates last activity
-        (
-          isGroupMember(resource.data) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivity'])
-        )
-      );
-
-      // Subcollection for messages within a group
-      match /messages/{messageId} {
-        // Only active group members can read messages
-        allow list, get: if isAuth() && isGroupMember(get(/databases/$(database)/documents/groups/$(groupId)).data);
-        
-        // Only active group members can create messages, and they must be the sender
-        allow create: if isAuth() && isGroupMember(get(/databases/$(database)/documents/groups/$(groupId)).data)
-                       && request.resource.data.senderId == request.auth.uid;
-
-        // Messages are immutable once created
-        allow update, delete: if false;
-      }
-    }
-
-    // Collection to enforce unique usernames
+    // Usernames must be unique. This collection stores a mapping of usernames to user IDs.
     match /usernames/{username} {
-      allow read, create: if isAuth();
-      allow update, delete: if false;
+      allow read;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth.uid == resource.data.uid;
+      allow update: never;
     }
 
-    // Collection for user profile data
+    // User profile data.
     match /users/{userId} {
-      allow read: if isAuth();
-      // A user can only create or update their own profile document
-      allow create, update: if isAuth() && request.auth.uid == userId;
+      allow read;
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Groups collection
+    match /groups/{groupId} {
+      // Allow any authenticated user to read group metadata.
+      // This is necessary for the "join by invite code" feature to work, but it makes group
+      // metadata (like name and member list) readable by any logged-in user.
+      // Message content remains secure.
+      allow read: if request.auth != null;
+
+      // Allow a user to create a group if they are authenticated and set themselves as the owner.
+      allow create: if request.auth != null &&
+                      request.resource.data.ownerId == request.auth.uid &&
+                      request.resource.data.memberUserIds == [request.auth.uid];
+
+      // Allow updates if the user is a member, or is joining the group.
+      allow update: if request.auth != null &&
+                      (request.auth.uid in resource.data.memberUserIds ||
+                       request.resource.data.memberUserIds == resource.data.memberUserIds.append(request.auth.uid));
+
+      // No one can delete a group document directly.
+      allow delete: never;
+
+      // Messages sub-collection
+      match /messages/{messageId} {
+        // Only members can read or write messages.
+        allow read, write: if request.auth != null &&
+                              request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+      }
     }
   }
 }
