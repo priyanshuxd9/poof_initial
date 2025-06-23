@@ -5,14 +5,16 @@ import React, { useEffect, useRef } from "react";
 import { ChatMessage, type ChatMessageData } from "./chat-message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import Image from "next/image"; // Ensure Image is imported
+import Image from "next/image";
+import { type AppUser } from "@/lib/firebase";
 
 interface MessageListProps {
   messages: ChatMessageData[];
+  membersInfo: Map<string, AppUser>;
   isLoading?: boolean;
 }
 
-export function MessageList({ messages, isLoading = false }: MessageListProps) {
+export function MessageList({ messages, membersInfo, isLoading = false }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -54,10 +56,9 @@ export function MessageList({ messages, isLoading = false }: MessageListProps) {
     <ScrollArea className="flex-1" ref={scrollAreaRef}>
       <div className="p-4 space-y-1" ref={viewportRef}>
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
+          <ChatMessage key={msg.id} message={msg} senderInfo={membersInfo.get(msg.senderId)} />
         ))}
       </div>
     </ScrollArea>
   );
 }
-

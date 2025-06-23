@@ -8,7 +8,7 @@ import { MessageList, type ChatMessageData } from "@/components/chat/message-lis
 import { MessageInput } from "@/components/chat/message-input";
 import { useAuth } from "@/contexts/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
-import { db } from "@/lib/firebase";
+import { db, getUsersFromIds, type AppUser } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,6 +21,7 @@ export default function GroupChatPage() {
 
   const [groupInfo, setGroupInfo] = useState<ChatGroupHeaderInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
+  const [membersInfo, setMembersInfo] = useState<Map<string, AppUser>>(new Map());
   const [isLoadingGroup, setIsLoadingGroup] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -59,37 +60,49 @@ export default function GroupChatPage() {
     const messagesColRef = collection(db, "groups", groupId, "messages");
     const q = query(messagesColRef, orderBy("timestamp", "asc"));
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       const fetchedMessages: ChatMessageData[] = [];
+      const senderIds = new Set<string>();
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         fetchedMessages.push({
           id: doc.id,
           senderId: data.senderId,
-          senderUsername: data.senderUsername,
-          senderAvatarUrl: data.senderAvatarUrl,
           text: data.text,
           mediaUrl: data.mediaUrl,
           mediaType: data.mediaType,
           timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         });
+        if (data.senderId) {
+            senderIds.add(data.senderId);
+        }
       });
       setMessages(fetchedMessages);
+      
+      const newSenderIds = Array.from(senderIds).filter(id => !membersInfo.has(id));
+      if (newSenderIds.length > 0) {
+        const newUsers = await getUsersFromIds(newSenderIds);
+        setMembersInfo(prevMap => {
+            const newMap = new Map(prevMap);
+            newUsers.forEach(u => newMap.set(u.uid, u));
+            return newMap;
+        });
+      }
+      
       setIsLoadingMessages(false);
     }, (error) => {
       console.error("Error fetching messages:", error);
       setIsLoadingMessages(false);
-      // Optional: show a toast or error message to the user
     });
 
-    return () => unsubscribe(); // Cleanup listener on unmount
-  }, [groupId]);
+    return () => unsubscribe();
+  }, [groupId, membersInfo]);
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
     if (!user || !groupId || (!message.text?.trim() && !message.file)) return;
     setIsSending(true);
 
-    // For now, we only handle text messages. File uploads will be implemented later.
     if (message.file) {
       toast({
         title: "Feature not available",
@@ -104,16 +117,13 @@ export default function GroupChatPage() {
         const messagesColRef = collection(db, 'groups', groupId, 'messages');
         await addDoc(messagesColRef, {
             senderId: user.uid,
-            senderUsername: user.username || user.email?.split('@')[0] || 'Unknown User',
-            senderAvatarUrl: user.photoURL || null,
+            // No longer storing username or avatar URL on the message document
             text: message.text?.trim(),
             timestamp: serverTimestamp(),
-            // Set media fields to null for text messages
             mediaUrl: null,
             mediaType: null,
         });
         
-        // Also update the group's lastActivity timestamp
         const groupDocRef = doc(db, 'groups', groupId);
         await updateDoc(groupDocRef, {
             lastActivity: serverTimestamp()
@@ -177,7 +187,7 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <GroupHeaderChat group={groupInfo} />
-      <MessageList messages={messages} isLoading={isLoadingMessages} />
+      <MessageList messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} />
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </div>
   );

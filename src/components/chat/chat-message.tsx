@@ -7,20 +7,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDetailedTimestamp, getInitials } from "@/lib/utils";
-import { useAuth } from "@/contexts/auth-context"; // To determine if message is from current user
+import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { type AppUser } from "@/lib/firebase";
 
 export interface MessageReaction {
   emoji: string;
   count: number;
-  users: string[]; // User IDs who reacted
+  users: string[];
 }
 
 export interface ChatMessageData {
   id: string;
   senderId: string;
-  senderUsername: string;
-  senderAvatarUrl?: string;
   text?: string;
   mediaUrl?: string;
   mediaType?: "image" | "video";
@@ -30,11 +29,15 @@ export interface ChatMessageData {
 
 interface ChatMessageProps {
   message: ChatMessageData;
+  senderInfo?: AppUser;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, senderInfo }: ChatMessageProps) {
   const { user: currentUser } = useAuth();
   const isCurrentUserMessage = message.senderId === currentUser?.uid;
+
+  const senderUsername = senderInfo?.username || '...';
+  const senderAvatarUrl = senderInfo?.photoURL;
 
   // TODO: Implement reaction handling logic
   const handleReaction = (emoji: string) => {
@@ -45,9 +48,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
     <div className={cn("flex gap-3 py-2 px-2 group", isCurrentUserMessage ? "justify-end" : "justify-start")}>
       {!isCurrentUserMessage && (
         <Avatar className="h-8 w-8 self-end">
-          <AvatarImage src={message.senderAvatarUrl || `https://placehold.co/40x40.png`} alt={message.senderUsername} data-ai-hint="user avatar" />
+          <AvatarImage src={senderAvatarUrl || `https://placehold.co/40x40.png`} alt={senderUsername} data-ai-hint="user avatar" />
           <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-            {getInitials(message.senderUsername)}
+            {getInitials(senderUsername)}
           </AvatarFallback>
         </Avatar>
       )}
@@ -58,7 +61,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         )}>
           <CardContent className="p-3 space-y-2">
             {!isCurrentUserMessage && (
-              <p className="text-xs font-medium">{message.senderUsername}</p>
+              <p className="text-xs font-medium">{senderUsername}</p>
             )}
             {message.text && <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>}
             {message.mediaUrl && message.mediaType === "image" && (
