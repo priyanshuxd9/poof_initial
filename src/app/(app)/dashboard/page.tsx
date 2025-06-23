@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { PlusCircle, ListChecks, Info, Clock, LogIn, ChevronDown } from "lucide-react";
+import { PlusCircle, ListChecks, Info, Clock, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,13 +14,6 @@ import { useState, useEffect } from "react";
 import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-
 
 // Group type definition
 export interface Group {
@@ -194,32 +187,22 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
           <p className="text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
-        <div className="flex w-full sm:w-auto">
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="lg" className="w-full sm:w-auto">
-                Actions
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem asChild>
+        <div className="flex w-full sm:w-auto space-x-2">
+            <Button asChild size="lg" className="flex-1 sm:flex-auto">
                 <Link href="/groups/create">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  <span>Create Group</span>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Create
                 </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsJoinDialogOpen(true)}>
+            </Button>
+            <Button variant="outline" size="lg" onClick={() => setIsJoinDialogOpen(true)} className="flex-1 sm:flex-auto">
                 <LogIn className="mr-2 h-4 w-4" />
-                <span>Join with Code</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                Join
+            </Button>
         </div>
       </div>
 
