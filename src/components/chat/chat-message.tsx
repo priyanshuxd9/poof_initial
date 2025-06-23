@@ -154,7 +154,7 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
                   className={cn(
                     "flex items-center gap-1 text-xs rounded-full px-2 py-0.5 transition-colors",
                     currentUserReacted 
-                      ? 'bg-primary text-primary-foreground' 
+                      ? 'bg-primary-foreground text-primary' 
                       : 'bg-muted hover:bg-muted/80'
                   )}
                   aria-label={`React with ${emoji}`}
@@ -170,13 +170,13 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
         <div className={cn("flex items-center gap-2 px-1", isCurrentUserMessage ? "justify-end" : "justify-start")}>
             {isCurrentUserMessage ? (
               <>
-                <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
                 <ReactionPicker />
+                <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
               </>
             ) : (
               <>
-                <ReactionPicker />
                 <span className="text-xs text-muted-foreground">{formatDetailedTimestamp(message.timestamp)}</span>
+                <ReactionPicker />
               </>
             )}
         </div>
