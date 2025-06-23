@@ -1,16 +1,16 @@
 
 import type { Metadata } from 'next';
-import { Nova_Mono } from 'next/font/google';
+import { Michroma } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ThemeProvider } from 'next-themes';
 import { FontSizeManager } from '@/components/shared/font-size-manager';
 
-const novaMono = Nova_Mono({
+const michroma = Michroma({
   subsets: ['latin'],
   weight: ['400'],
-  variable: '--font-nova-mono',
+  variable: '--font-michroma',
 });
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${novaMono.variable} font-sans antialiased`}>
+      <body className={`${michroma.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
