@@ -2,7 +2,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { GroupHeaderChat, type ChatGroupHeaderInfo } from "@/components/chat/group-header-chat";
 import { MessageList } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
@@ -25,39 +25,42 @@ export default function GroupChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  // This ref will track which user profiles we have already fetched
-  const fetchedUserIds = useRef(new Set<string>());
-
+  // Effect for Group Info and fetching all member profiles once
   useEffect(() => {
-    // Only proceed if we have a group and user
     if (!groupId || !user?.uid) {
-      setIsLoading(false);
       return;
     }
 
-    // Reset all state when changing groups
-    setIsLoading(true);
-    setGroupInfo(null);
-    setMessages([]);
-    setMembersInfo({});
-    fetchedUserIds.current.clear();
-    
-    // 1. Subscribe to Group Info
     const groupDocRef = doc(db, "groups", groupId);
-    const unsubscribeGroup = onSnapshot(groupDocRef, (docSnap) => {
+    const unsubscribeGroup = onSnapshot(groupDocRef, async (docSnap) => {
       if (docSnap.exists() && docSnap.data().memberUserIds?.includes(user.uid)) {
         const data = docSnap.data();
+        const memberIds = data.memberUserIds || [];
+        
         setGroupInfo({
           id: docSnap.id,
           name: data.name,
-          memberCount: data.memberUserIds?.length || 0,
+          memberCount: memberIds.length,
           imageUrl: data.imageUrl,
           selfDestructAt: (data.selfDestructAt as Timestamp).toDate().toISOString(),
           createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
           inviteCode: data.inviteCode,
         });
+
+        // Fetch all member profiles at once when group info is loaded
+        if (memberIds.length > 0) {
+            try {
+                const users = await getUsersFromIds(memberIds);
+                const membersMap: { [key: string]: AppUser } = {};
+                users.forEach(u => {
+                    membersMap[u.uid] = u;
+                });
+                setMembersInfo(membersMap);
+            } catch (error) {
+                console.error("Error fetching member profiles:", error);
+            }
+        }
       } else {
-        // Group not found or user not a member
         setGroupInfo(null);
         setIsLoading(false);
       }
@@ -67,68 +70,42 @@ export default function GroupChatPage() {
       setIsLoading(false);
     });
 
-    // 2. Subscribe to Messages
+    return () => unsubscribeGroup();
+  }, [groupId, user?.uid]);
+
+  // Effect for Messages
+  useEffect(() => {
+    if (!groupId) {
+      return;
+    }
+
     const messagesColRef = collection(db, "groups", groupId, "messages");
     const q = query(messagesColRef, orderBy("timestamp", "asc"));
     
     const unsubscribeMessages = onSnapshot(q, (querySnapshot) => {
-      const newMessagesData: ChatMessageData[] = [];
-      const senderIdsInSnapshot = new Set<string>();
-
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
-        newMessagesData.push({
-          id: doc.id,
-          senderId: data.senderId,
-          text: data.text,
-          mediaUrl: data.mediaUrl,
-          mediaType: data.mediaType,
-          timestamp: (data.timestamp as Timestamp)?.toDate()?.toISOString() || new Date().toISOString(),
-          reactions: data.reactions || {},
-        });
-        if (data.senderId) {
-            senderIdsInSnapshot.add(data.senderId);
-        }
+      const newMessagesData: ChatMessageData[] = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            senderId: data.senderId,
+            text: data.text,
+            mediaUrl: data.mediaUrl,
+            mediaType: data.mediaType,
+            timestamp: (data.timestamp as Timestamp)?.toDate()?.toISOString() || new Date().toISOString(),
+            reactions: data.reactions || {},
+          };
       });
       
       setMessages(newMessagesData);
+      setIsLoading(false); // Stop loading after the first batch of messages is fetched
 
-      const idsToFetch = Array.from(senderIdsInSnapshot).filter(id => !fetchedUserIds.current.has(id));
-      
-      if (idsToFetch.length > 0) {
-        // Mark these as "fetching" so we don't try again
-        idsToFetch.forEach(id => fetchedUserIds.current.add(id));
-        
-        getUsersFromIds(idsToFetch).then(newUsers => {
-          setMembersInfo(prevMembers => {
-            const updatedMembers = { ...prevMembers };
-            newUsers.forEach(u => {
-              updatedMembers[u.uid] = u;
-            });
-            return updatedMembers;
-          });
-        });
-      }
-
-      // We can stop the main loading indicator after the first successful message fetch
-      if (isLoading) {
-          setIsLoading(false);
-      }
     }, (error) => {
       console.error("Error fetching messages:", error);
       setIsLoading(false);
     });
 
-    // Cleanup listeners on component unmount or when dependencies change
-    return () => {
-      unsubscribeGroup();
-      unsubscribeMessages();
-    };
-    
-  // This dependency array is now stable and correct. It will only re-run
-  // when the user navigates to a new group or logs in/out.
-  }, [groupId, user?.uid]);
-
+    return () => unsubscribeMessages();
+  }, [groupId]);
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
     if (!user || !groupId || (!message.text?.trim() && !message.file)) return;
