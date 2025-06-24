@@ -54,6 +54,7 @@ export default function GroupChatPage() {
     return () => unsubscribe();
   }, [groupId]);
 
+  // Effect to fetch messages for the group
   useEffect(() => {
     if (!groupId) return;
 
@@ -61,13 +62,10 @@ export default function GroupChatPage() {
     const messagesColRef = collection(db, "groups", groupId, "messages");
     const q = query(messagesColRef, orderBy("timestamp", "asc"));
 
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      const fetchedMessages: ChatMessageData[] = [];
-      const senderIds = new Set<string>();
-
-      querySnapshot.forEach((doc) => {
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedMessages: ChatMessageData[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        fetchedMessages.push({
+        return {
           id: doc.id,
           senderId: data.senderId,
           text: data.text,
@@ -75,23 +73,9 @@ export default function GroupChatPage() {
           mediaType: data.mediaType,
           timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
           reactions: data.reactions,
-        });
-        if (data.senderId) {
-            senderIds.add(data.senderId);
-        }
+        };
       });
       setMessages(fetchedMessages);
-      
-      const newSenderIds = Array.from(senderIds).filter(id => !membersInfo.has(id));
-      if (newSenderIds.length > 0) {
-        const newUsers = await getUsersFromIds(newSenderIds);
-        setMembersInfo(prevMap => {
-            const newMap = new Map(prevMap);
-            newUsers.forEach(u => newMap.set(u.uid, u));
-            return newMap;
-        });
-      }
-      
       setIsLoadingMessages(false);
     }, (error) => {
       console.error("Error fetching messages:", error);
@@ -99,7 +83,26 @@ export default function GroupChatPage() {
     });
 
     return () => unsubscribe();
-  }, [groupId, membersInfo]);
+  }, [groupId]);
+
+  // Effect to fetch member info when messages change
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const senderIds = new Set(messages.map(m => m.senderId).filter(Boolean));
+    const newSenderIds = Array.from(senderIds).filter(id => !membersInfo.has(id as string));
+
+    if (newSenderIds.length > 0) {
+      getUsersFromIds(newSenderIds as string[]).then(newUsers => {
+        setMembersInfo(prevMap => {
+          const newMap = new Map(prevMap);
+          newUsers.forEach(user => newMap.set(user.uid, user));
+          return newMap;
+        });
+      });
+    }
+  }, [messages, membersInfo]);
+
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
     if (!user || !groupId || (!message.text?.trim() && !message.file)) return;
