@@ -7,7 +7,7 @@ import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPasswo
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique, db, storage, updateUserProfilePhoto } from '@/lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 export interface User extends FirebaseUser {
@@ -34,24 +34,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     ensureFirebaseInitialized();
-    // This will hold the listener unsubscribe function, so we can call it on cleanup.
-    let userDocListenerUnsubscribe: (() => void) | null = null;
 
-    const authStateUnsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      // If a previous user doc listener exists, unsubscribe from it
-      if (userDocListenerUnsubscribe) {
-        userDocListenerUnsubscribe();
-      }
-
+    const authStateUnsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        setLoading(true); // Set loading while we fetch/listen for user doc
+        setLoading(true);
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
-        // Set up the real-time listener
-        userDocListenerUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        try {
+          const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             const userData = docSnap.data();
-            // Combine the latest auth object with the latest firestore data
             setUser({
               ...firebaseUser,
               username: userData.username || firebaseUser.displayName || undefined,
@@ -59,15 +51,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             });
           } else {
             // This case might happen if user is authenticated but firestore doc creation failed
-            // We can still set the user with basic auth info
             setUser({ ...firebaseUser });
           }
+        } catch (error) {
+          console.error("Error fetching user document:", error);
+          setUser({ ...firebaseUser }); // Fallback to auth info
+        } finally {
           setLoading(false);
-        }, (error) => {
-            console.error("Error listening to user document:", error);
-            setUser({ ...firebaseUser }); // Fallback to auth info
-            setLoading(false);
-        });
+        }
 
       } else {
         // No user is signed in
@@ -79,9 +70,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Cleanup function for the effect
     return () => {
       authStateUnsubscribe();
-      if (userDocListenerUnsubscribe) {
-        userDocListenerUnsubscribe();
-      }
     };
   }, []);
 
@@ -102,9 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     await updateUserProfilePhoto(user.uid, newPhotoURL);
     
-    // The onSnapshot listener will automatically update the context state,
-    // so a manual call to updateUserContext is no longer strictly necessary here,
-    // but it can provide a slightly faster UI update perception.
+    // Manually update context now that onSnapshot is gone.
     updateUserContext({ photoURL: newPhotoURL });
   };
 
@@ -122,7 +108,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false); // Ensure loading is turned off on error
       throw error;
     } 
-    // No finally block needed as onAuthStateChanged handles success
   };
 
   const signUp = async (email?: string, password?: string, username?: string) => {
@@ -153,7 +138,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false); // Ensure loading is turned off on error
       throw error;
     }
-    // No finally block needed as onAuthStateChanged handles success
   };
 
   const signOut = async () => {
