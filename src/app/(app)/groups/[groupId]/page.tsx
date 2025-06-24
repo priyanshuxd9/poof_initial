@@ -26,11 +26,9 @@ export default function GroupChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   
-  // A ref to hold the latest membersInfo to avoid stale closures in onSnapshot
-  const membersInfoRef = useRef(membersInfo);
-  useEffect(() => {
-    membersInfoRef.current = membersInfo;
-  }, [membersInfo]);
+  // Use a ref to track which user profiles have already been fetched
+  // to prevent re-fetching and avoid infinite loops.
+  const fetchedUserIds = useRef(new Set<string>());
 
 
   useEffect(() => {
@@ -39,11 +37,22 @@ export default function GroupChatPage() {
       return;
     }
 
+    setIsLoading(true);
+    fetchedUserIds.current.clear(); // Clear on group change
+    setMessages([]);
+    setMembersInfo({});
+
     // Listener for Group Info
     const groupDocRef = doc(db, "groups", groupId);
     const unsubscribeGroup = onSnapshot(groupDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        // Security check: ensure current user is a member
+        if (!data.memberUserIds?.includes(user.uid)) {
+            setGroupInfo(null);
+            setIsLoading(false);
+            return;
+        }
         setGroupInfo({
           id: docSnap.id,
           name: data.name,
@@ -55,10 +64,12 @@ export default function GroupChatPage() {
         });
       } else {
         setGroupInfo(null);
+        setIsLoading(false);
       }
     }, (error) => {
         console.error("Error fetching group details:", error);
         setGroupInfo(null);
+        setIsLoading(false);
     });
 
     // Listener for Messages
@@ -80,17 +91,20 @@ export default function GroupChatPage() {
       });
       setMessages(fetchedMessages);
       
-      // After messages are set, fetch info for any new members
       const allSenderIds = [...new Set(fetchedMessages.map(m => m.senderId).filter(Boolean))];
-      const newSenderIdsToFetch = allSenderIds.filter(id => !membersInfoRef.current[id]);
+      const newSenderIdsToFetch = allSenderIds.filter(id => !fetchedUserIds.current.has(id as string));
 
       if (newSenderIdsToFetch.length > 0) {
+        // Immediately mark these IDs as "being fetched" to prevent redundant calls
+        newSenderIdsToFetch.forEach(id => fetchedUserIds.current.add(id as string));
+        
         getUsersFromIds(newSenderIdsToFetch as string[]).then(newUsers => {
             const newMembersData = newUsers.reduce((acc, u) => {
                 acc[u.uid] = u;
                 return acc;
             }, {} as {[key: string]: AppUser});
-
+            
+            // Use functional update to safely merge new user data
             setMembersInfo(prev => ({...prev, ...newMembersData}));
         });
       }
@@ -106,7 +120,7 @@ export default function GroupChatPage() {
         unsubscribeGroup();
         unsubscribeMessages();
     };
-  }, [groupId, user]);
+  }, [groupId, user]); // Only re-run when groupId or user changes
 
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
