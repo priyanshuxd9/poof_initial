@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState } from 'react';
-import Image from "next/image";
 import { ThumbsUp, SmilePlus } from "lucide-react";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db, type AppUser } from "@/lib/firebase";
@@ -114,25 +113,10 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
             {!isCurrentUserMessage && (
               <p className="text-xs font-medium">{senderUsername}</p>
             )}
-            {message.text !== undefined && (
+            {message.text && (
                  <p className="text-sm whitespace-pre-wrap break-words">
                    <span>{message.text}</span>
                  </p>
-            )}
-            {message.mediaUrl && message.mediaType === "image" && (
-              <Image
-                src={message.mediaUrl}
-                alt="Shared image"
-                width={300}
-                height={200}
-                className="rounded-lg object-cover max-w-full h-auto"
-                data-ai-hint="chat image"
-              />
-            )}
-            {message.mediaUrl && message.mediaType === "video" && (
-              <video controls src={message.mediaUrl} className="rounded-lg max-w-full h-auto" width={300}>
-                Your browser does not support the video tag.
-              </video>
             )}
           </CardContent>
         </Card>

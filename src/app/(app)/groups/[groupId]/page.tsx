@@ -2,7 +2,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { GroupHeaderChat, type ChatGroupHeaderInfo } from "@/components/chat/group-header-chat";
 import { MessageList } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
@@ -25,13 +25,6 @@ export default function GroupChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  // This ref is crucial to prevent an infinite loop caused by stale closures in the onSnapshot callback.
-  // It ensures the callback always has access to the latest membersInfo state.
-  const membersInfoRef = useRef(membersInfo);
-  useEffect(() => {
-    membersInfoRef.current = membersInfo;
-  }, [membersInfo]);
-
   // Effect for setting up all listeners
   useEffect(() => {
     if (!groupId || !user?.uid) {
@@ -45,6 +38,7 @@ export default function GroupChatPage() {
     
     let unsubscribeMessages: (() => void) | null = null;
 
+    // Listen to the group document for changes
     const unsubscribeGroup = onSnapshot(groupDocRef, async (groupSnap) => {
       if (!groupSnap.exists() || !groupSnap.data()?.memberUserIds?.includes(user.uid)) {
         setGroupInfo(null);
@@ -68,21 +62,17 @@ export default function GroupChatPage() {
         inviteCode: groupData.inviteCode,
       });
 
-      // Fetch profiles for any new members without causing a loop
-      const currentMembers = membersInfoRef.current;
-      const newMemberIds = memberIds.filter(id => !currentMembers[id]);
-      if (newMemberIds.length > 0) {
-        try {
-          const newUsers = await getUsersFromIds(newMemberIds);
-          const newMembersMap: { [key: string]: AppUser } = {};
-          newUsers.forEach(u => { newMembersMap[u.uid] = u; });
-          setMembersInfo(prev => ({ ...prev, ...newMembersMap }));
-        } catch (error) {
-          console.error("Error fetching new member profiles:", error);
-        }
+      // Fetch profiles for all members
+      try {
+        const users = await getUsersFromIds(memberIds);
+        const newMembersMap: { [key: string]: AppUser } = {};
+        users.forEach(u => { newMembersMap[u.uid] = u; });
+        setMembersInfo(newMembersMap);
+      } catch (error) {
+        console.error("Error fetching member profiles:", error);
       }
 
-      // Set up messages listener only once
+      // Set up messages listener only ONCE
       if (!unsubscribeMessages) {
         const messagesColRef = collection(db, "groups", groupId, "messages");
         const q = query(messagesColRef, orderBy("timestamp", "asc"));
@@ -102,7 +92,7 @@ export default function GroupChatPage() {
           });
           
           setMessages(newMessagesData);
-          setIsLoading(false); // We are no longer loading after the first message batch arrives
+          setIsLoading(false);
         }, (error) => {
           console.error("Error fetching messages:", error);
           setIsLoading(false);
@@ -123,27 +113,15 @@ export default function GroupChatPage() {
     };
   }, [groupId, user?.uid]);
 
-  const handleSendMessage = async (message: { text?: string; file?: File }) => {
-    if (!user || !groupId || (!message.text?.trim() && !message.file)) return;
+  const handleSendMessage = async (text: string) => {
+    if (!user || !groupId || !text.trim()) return;
     setIsSending(true);
 
-    if (message.file) {
-      toast({
-        title: "Feature not available",
-        description: "File sharing is coming soon!",
-        variant: "destructive"
-      });
-      setIsSending(false);
-      return;
-    }
-
     try {
-        const textToSend = message.text?.trim() ?? "";
-        
         const messagesColRef = collection(db, 'groups', groupId, 'messages');
         await addDoc(messagesColRef, {
             senderId: user.uid,
-            text: textToSend,
+            text: text.trim(),
             timestamp: serverTimestamp(),
             mediaUrl: null,
             mediaType: null,
