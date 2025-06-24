@@ -24,11 +24,11 @@ export function formatTimeAgo(date: Date | string | number | undefined): string 
 
 export function formatDetailedTimestamp(timestamp: Date | string | number | undefined): string {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
+  const date = new D`ate`(timestamp);
   
-  // if today, show "Today, 5:30 PM"
+  // if today, show "5:30 PM"
   if (isToday(date)) {
-    return `Today, ${format(date, "p")}`;
+    return format(date, "p");
   }
   
   // if this year, show "Jun 1, 5:30 PM"
