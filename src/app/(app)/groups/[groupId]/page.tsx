@@ -101,7 +101,7 @@ export default function GroupChatPage() {
         });
       });
     }
-  }, [messages, membersInfo]);
+  }, [messages]);
 
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
