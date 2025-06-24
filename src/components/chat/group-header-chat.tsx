@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Users, Info, Clock, Share2, Copy, Settings, Lock } from "lucide-react";
+import { ChevronLeft, Users, Info, Clock, Share2, Copy, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -83,7 +83,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
     navigator.clipboard.writeText(group.inviteCode);
     toast({
       title: "Invite Code Copied!",
-      description: `Code: ${group.inviteCode}. Don't forget to also share the encryption key!`,
+      description: `Code: ${group.inviteCode}`,
     });
   };
 
@@ -101,7 +101,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
             <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(group.name)}</AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">{group.name} <Lock className="h-3 w-3 text-muted-foreground" title="End-to-End Encrypted"/></h1>
+            <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">{group.name}</h1>
             <div className="text-xs text-muted-foreground flex items-center">
               <Users className="h-3 w-3 mr-1" /> {group.memberCount}
               <span className="mx-1.5">·</span> 

@@ -11,8 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { db, getUsersFromIds, type AppUser } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { useGroupKeys } from "@/hooks/use-group-keys";
-import { importKey, encrypt } from "@/lib/crypto";
 import type { ChatMessageData } from "@/components/chat/chat-message";
 
 
@@ -21,7 +19,6 @@ export default function GroupChatPage() {
   const groupId = params.groupId as string;
   const { user } = useAuth();
   const { toast } = useToast();
-  const { getKey } = useGroupKeys();
 
   const [groupInfo, setGroupInfo] = useState<ChatGroupHeaderInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
@@ -29,13 +26,6 @@ export default function GroupChatPage() {
   const [isLoadingGroup, setIsLoadingGroup] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [encryptionKey, setEncryptionKey] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (groupId) {
-      setEncryptionKey(getKey(groupId));
-    }
-  }, [groupId, getKey]);
 
   useEffect(() => {
     if (!groupId) return;
@@ -128,24 +118,10 @@ export default function GroupChatPage() {
     try {
         const textToSend = message.text?.trim() ?? "";
         
-        if (!encryptionKey) {
-          toast({
-            title: "Encryption Key Missing",
-            description: "Cannot send message. The key for this group is not available on this device. Please re-join with the key.",
-            variant: "destructive",
-          });
-          setIsSending(false);
-          return; // HARD STOP: Do not proceed without a key.
-        }
-
-        // Encryption is now mandatory.
-        const key = await importKey(encryptionKey);
-        const encryptedText = await encrypt(textToSend, key);
-        
         const messagesColRef = collection(db, 'groups', groupId, 'messages');
         await addDoc(messagesColRef, {
             senderId: user.uid,
-            text: encryptedText, // Always send the encrypted text.
+            text: textToSend,
             timestamp: serverTimestamp(),
             mediaUrl: null,
             mediaType: null,
@@ -161,7 +137,7 @@ export default function GroupChatPage() {
         console.error("Error sending message:", error);
         toast({
             title: "Error Sending Message",
-            description: "Could not send your message. It might be an issue with the encryption key.",
+            description: "Could not send your message. Please try again.",
             variant: "destructive",
         });
     } finally {
@@ -215,7 +191,7 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-full bg-background">
       <GroupHeaderChat group={groupInfo} />
-      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} groupInfo={groupInfo} encryptionKey={encryptionKey}/>
+      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} groupInfo={groupInfo}/>
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </div>
   );

@@ -16,10 +16,9 @@ interface MessageListProps {
   membersInfo: Map<string, AppUser>;
   isLoading?: boolean;
   groupInfo: ChatGroupHeaderInfo | null;
-  encryptionKey?: string;
 }
 
-export function MessageList({ groupId, messages, membersInfo, isLoading = false, groupInfo, encryptionKey }: MessageListProps) {
+export function MessageList({ groupId, messages, membersInfo, isLoading = false, groupInfo }: MessageListProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,7 +64,7 @@ export function MessageList({ groupId, messages, membersInfo, isLoading = false,
     <ScrollArea className="flex-1 basis-0" viewportRef={viewportRef}>
       <div className="p-4 space-y-1">
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo.get(msg.senderId)} encryptionKey={encryptionKey} />
+          <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo.get(msg.senderId)} />
         ))}
       </div>
     </ScrollArea>
