@@ -84,6 +84,7 @@ export function MessageList({ groupId, members }: MessageListProps) {
                         message={message}
                         sender={sender}
                         isCurrentUser={isCurrentUser}
+                        membersMap={membersMap}
                     />
                 );
             })

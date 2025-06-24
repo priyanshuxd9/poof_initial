@@ -1,13 +1,21 @@
 
 "use client";
 
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn, getInitials, formatDetailedTimestamp } from "@/lib/utils";
 import type { AppUser } from "@/lib/firebase";
-import { Timestamp, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { Timestamp, doc, writeBatch, arrayUnion, arrayRemove } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
-import { ThumbsUp } from "lucide-react";
+import { SmilePlus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
@@ -25,27 +33,52 @@ interface ChatMessageProps {
   message: Message;
   sender?: AppUser;
   isCurrentUser: boolean;
+  membersMap: Map<string, AppUser>;
 }
 
-export function ChatMessage({ message, sender, isCurrentUser }: ChatMessageProps) {
+const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+export function ChatMessage({ message, sender, isCurrentUser, membersMap }: ChatMessageProps) {
   const { user } = useAuth();
   const params = useParams();
   const groupId = params.groupId as string;
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const messageDate = message.createdAt?.toDate();
   const formattedTime = formatDetailedTimestamp(messageDate);
 
-  const handleReaction = async (emoji: string) => {
+  const handleReaction = async (newEmoji: string) => {
     if (!user || !groupId || !message.id) return;
+    setPopoverOpen(false);
 
     const messageRef = doc(db, 'groups', groupId, 'messages', message.id);
-    const reactionPath = `reactions.${emoji}`;
-    
-    const hasReacted = message.reactions?.[emoji]?.includes(user.uid);
+    const reactions = message.reactions || {};
+    let currentUserReaction: string | null = null;
 
-    await updateDoc(messageRef, {
-        [reactionPath]: hasReacted ? arrayRemove(user.uid) : arrayUnion(user.uid)
-    });
+    // Find user's current reaction
+    for (const emoji in reactions) {
+        if (reactions[emoji]?.includes(user.uid)) {
+            currentUserReaction = emoji;
+            break;
+        }
+    }
+    
+    const batch = writeBatch(db);
+
+    // If user has an existing reaction, remove it
+    if (currentUserReaction) {
+        const oldReactionPath = `reactions.${currentUserReaction}`;
+        batch.update(messageRef, { [oldReactionPath]: arrayRemove(user.uid) });
+    }
+
+    // If the new reaction is different from the old one (or if there was no old one), add it.
+    // This logic handles toggling off the same reaction.
+    if (currentUserReaction !== newEmoji) {
+        const newReactionPath = `reactions.${newEmoji}`;
+        batch.update(messageRef, { [newReactionPath]: arrayUnion(user.uid) });
+    }
+
+    await batch.commit();
   };
 
   if (!sender) {
@@ -60,8 +93,9 @@ export function ChatMessage({ message, sender, isCurrentUser }: ChatMessageProps
     );
   }
   
-  const thumbsUpCount = message.reactions?.['👍']?.length || 0;
-  const currentUserThumbedUp = user ? message.reactions?.['👍']?.includes(user.uid) : false;
+  const validReactions = Object.entries(message.reactions || {}).filter(
+    ([, uids]) => uids && uids.length > 0
+  );
 
   return (
     <div
@@ -77,13 +111,13 @@ export function ChatMessage({ message, sender, isCurrentUser }: ChatMessageProps
         </Avatar>
       )}
     
-      <div className="flex flex-col items-start max-w-xs md:max-w-md lg:max-w-lg">
+      <div className="flex flex-col max-w-xs md:max-w-md lg:max-w-lg">
         <div
           className={cn(
             "relative flex flex-col rounded-xl px-3 py-2",
             isCurrentUser
-              ? "bg-primary text-primary-foreground rounded-br-none items-end"
-              : "bg-muted text-foreground rounded-bl-none items-start"
+              ? "bg-primary text-primary-foreground rounded-br-none"
+              : "bg-muted text-foreground rounded-bl-none"
           )}
         >
           {!isCurrentUser && (
@@ -91,33 +125,73 @@ export function ChatMessage({ message, sender, isCurrentUser }: ChatMessageProps
           )}
           <p className="whitespace-pre-wrap break-words text-left">{message.text}</p>
           <p className={cn(
-            "text-xs mt-1",
+            "text-xs mt-1 self-start",
             isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
           )}>
             {formattedTime}
           </p>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-                "absolute -bottom-4 h-6 w-6 rounded-full bg-card shadow-md transition-all opacity-0 group-hover:opacity-100",
-                isCurrentUser ? "left-1" : "right-1",
-                {"opacity-100": currentUserThumbedUp || thumbsUpCount > 0}
-            )}
-            onClick={() => handleReaction('👍')}
-            >
-                <ThumbsUp className={cn("h-3 w-3", currentUserThumbedUp ? "fill-yellow-400 text-yellow-500" : "text-muted-foreground")} />
-            </Button>
+          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+              <PopoverTrigger asChild>
+                  <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                          "absolute -bottom-4 h-7 w-7 rounded-full bg-card shadow-md transition-all opacity-0 group-hover:opacity-100",
+                          isCurrentUser ? "left-1" : "right-1"
+                      )}
+                  >
+                      <SmilePlus className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1 rounded-full">
+                  <div className="flex gap-1">
+                      {EMOJIS.map(emoji => (
+                          <Button
+                              key={emoji}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full text-lg"
+                              onClick={() => handleReaction(emoji)}
+                          >
+                              {emoji}
+                          </Button>
+                      ))}
+                  </div>
+              </PopoverContent>
+          </Popover>
         </div>
 
-        {thumbsUpCount > 0 && (
+        {validReactions.length > 0 && (
              <div className={cn(
-                 "flex items-center gap-1 text-xs text-muted-foreground bg-card px-1.5 py-0.5 rounded-full mt-1 shadow-sm",
+                 "flex items-center gap-1.5 mt-1.5 flex-wrap",
                  isCurrentUser ? "self-end" : "self-start"
              )}>
-                <ThumbsUp className="h-3 w-3 text-yellow-500" />
-                <span>{thumbsUpCount}</span>
+                {validReactions.map(([emoji, uids]) => {
+                  const currentUserReacted = user ? uids.includes(user.uid) : false;
+                  const reactedUsernames = uids.map(uid => membersMap.get(uid)?.username || '...').join('\n');
+                  
+                  return (
+                    <TooltipProvider key={emoji} delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                              variant={currentUserReacted ? "default" : "secondary"}
+                              size="sm"
+                              className="h-auto px-2 py-0.5 rounded-full border"
+                              onClick={() => handleReaction(emoji)}
+                          >
+                              <span className="text-sm mr-1">{emoji}</span>
+                              <span className="text-xs font-semibold">{uids.length}</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="p-2">
+                            <div className="text-sm text-center font-medium whitespace-pre-wrap">{reactedUsernames} reacted with {emoji}</div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )
+                })}
              </div>
         )}
       </div>
