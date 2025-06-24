@@ -26,13 +26,12 @@ export default function GroupChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   
-  // Use a ref to track which user profiles have already been fetched
-  // to prevent re-fetching and avoid infinite loops.
   const fetchedUserIds = useRef(new Set<string>());
 
 
   useEffect(() => {
-    if (!groupId || !user) {
+    const userId = user?.uid;
+    if (!groupId || !userId) {
       setIsLoading(false);
       return;
     }
@@ -48,7 +47,7 @@ export default function GroupChatPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         // Security check: ensure current user is a member
-        if (!data.memberUserIds?.includes(user.uid)) {
+        if (!data.memberUserIds?.includes(userId)) {
             setGroupInfo(null);
             setIsLoading(false);
             return;
@@ -106,10 +105,12 @@ export default function GroupChatPage() {
             
             // Use functional update to safely merge new user data
             setMembersInfo(prev => ({...prev, ...newMembersData}));
+            setIsLoading(false); // Stop loading once user info is fetched
         });
+      } else {
+        setIsLoading(false); // Stop loading if no new users to fetch
       }
       
-      setIsLoading(false);
     }, (error) => {
       console.error("Error fetching messages:", error);
       setIsLoading(false);
@@ -120,7 +121,7 @@ export default function GroupChatPage() {
         unsubscribeGroup();
         unsubscribeMessages();
     };
-  }, [groupId, user]); // Only re-run when groupId or user changes
+  }, [groupId, user?.uid]); // Only re-run when groupId or user ID changes
 
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
