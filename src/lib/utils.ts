@@ -24,7 +24,7 @@ export function formatTimeAgo(date: Date | string | number | undefined): string 
 
 export function formatDetailedTimestamp(timestamp: Date | string | number | undefined): string {
   if (!timestamp) return '';
-  const date = new D`ate`(timestamp);
+  const date = new Date(timestamp);
   
   // if today, show "5:30 PM"
   if (isToday(date)) {
