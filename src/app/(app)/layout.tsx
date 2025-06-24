@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { AppHeader } from '@/components/shared/app-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,7 +10,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -51,19 +50,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isDashboardPage = pathname === '/dashboard';
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {isDashboardPage && <AppHeader />}
+      <AppHeader />
       <main className="flex-1 flex flex-col overflow-hidden">
         {children}
       </main>
-      {isDashboardPage && (
-        <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-          © {new Date().getFullYear()} Poof. All rights reserved. (Poof, magic!)
-        </footer>
-      )}
     </div>
   );
 }

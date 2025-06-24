@@ -80,7 +80,7 @@ function GroupListItem({ group }: GroupListItemProps) {
     : group.description.substring(0, 45) + (group.description.length > 45 ? "..." : "");
 
   return (
-    <Link href="#" onClick={(e) => e.preventDefault()} className="block hover:bg-muted/30 transition-colors rounded-lg cursor-not-allowed opacity-50" title="Chat functionality is being rebuilt.">
+    <Link href={`/groups/${group.id}`} className="block hover:bg-muted/30 transition-colors rounded-lg">
       <div className="flex items-center p-3 sm:p-4 space-x-3 sm:space-x-4 border-b last:border-b-0">
         <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0">
           <AvatarImage src={group.imageUrl || `https://placehold.co/64x64.png`} alt={group.name} data-ai-hint="group avatar" />
