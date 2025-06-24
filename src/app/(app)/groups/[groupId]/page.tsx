@@ -13,7 +13,6 @@ import { doc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, T
 import { useToast } from "@/hooks/use-toast";
 import type { ChatMessageData } from "@/components/chat/chat-message";
 
-
 export default function GroupChatPage() {
   const params = useParams();
   const groupId = params.groupId as string;
@@ -25,33 +24,33 @@ export default function GroupChatPage() {
   const [membersInfo, setMembersInfo] = useState<{ [key: string]: AppUser }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  
-  const fetchedUserIds = useRef(new Set<string>());
 
+  // This ref will hold the unsubscribe functions for our listeners
+  const unsubscribeRef = useRef<(() => void)[]>([]);
 
   useEffect(() => {
-    const userId = user?.uid;
-    if (!groupId || !userId) {
+    if (!groupId || !user?.uid) {
       setIsLoading(false);
       return;
     }
-
     setIsLoading(true);
-    fetchedUserIds.current.clear(); // Clear on group change
+
+    // Reset state for new group
+    setGroupInfo(null);
     setMessages([]);
     setMembersInfo({});
+    
+    // Clear any previous listeners
+    unsubscribeRef.current.forEach(unsub => unsub());
+    unsubscribeRef.current = [];
 
-    // Listener for Group Info
+    // --- Set up new listeners ---
+
+    // 1. Group Info Listener
     const groupDocRef = doc(db, "groups", groupId);
     const unsubscribeGroup = onSnapshot(groupDocRef, (docSnap) => {
-      if (docSnap.exists()) {
+      if (docSnap.exists() && docSnap.data().memberUserIds?.includes(user.uid)) {
         const data = docSnap.data();
-        // Security check: ensure current user is a member
-        if (!data.memberUserIds?.includes(userId)) {
-            setGroupInfo(null);
-            setIsLoading(false);
-            return;
-        }
         setGroupInfo({
           id: docSnap.id,
           name: data.name,
@@ -66,17 +65,18 @@ export default function GroupChatPage() {
         setIsLoading(false);
       }
     }, (error) => {
-        console.error("Error fetching group details:", error);
-        setGroupInfo(null);
-        setIsLoading(false);
+      console.error("Error fetching group details:", error);
+      setGroupInfo(null);
+      setIsLoading(false);
     });
+    unsubscribeRef.current.push(unsubscribeGroup);
 
-    // Listener for Messages
+    // 2. Messages Listener
     const messagesColRef = collection(db, "groups", groupId, "messages");
     const q = query(messagesColRef, orderBy("timestamp", "asc"));
-
-    const unsubscribeMessages = onSnapshot(q, (querySnapshot) => {
-      const fetchedMessages: ChatMessageData[] = querySnapshot.docs.map(doc => {
+    
+    const unsubscribeMessages = onSnapshot(q, async (querySnapshot) => {
+      const newMessages: ChatMessageData[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -84,44 +84,44 @@ export default function GroupChatPage() {
           text: data.text,
           mediaUrl: data.mediaUrl,
           mediaType: data.mediaType,
-          timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-          reactions: data.reactions,
+          timestamp: (data.timestamp as Timestamp)?.toDate()?.toISOString() || new Date().toISOString(),
+          reactions: data.reactions || {},
         };
       });
-      setMessages(fetchedMessages);
-      
-      const allSenderIds = [...new Set(fetchedMessages.map(m => m.senderId).filter(Boolean))];
-      const newSenderIdsToFetch = allSenderIds.filter(id => !fetchedUserIds.current.has(id as string));
+      setMessages(newMessages);
 
-      if (newSenderIdsToFetch.length > 0) {
-        // Immediately mark these IDs as "being fetched" to prevent redundant calls
-        newSenderIdsToFetch.forEach(id => fetchedUserIds.current.add(id as string));
-        
-        getUsersFromIds(newSenderIdsToFetch as string[]).then(newUsers => {
+      const senderIds = [...new Set(newMessages.map(m => m.senderId).filter(Boolean))];
+      // Use a functional state update to access the latest `membersInfo`
+      setMembersInfo(currentMembersInfo => {
+        const idsToFetch = senderIds.filter(id => !currentMembersInfo[id]);
+        if (idsToFetch.length > 0) {
+          getUsersFromIds(idsToFetch).then(newUsers => {
             const newMembersData = newUsers.reduce((acc, u) => {
-                acc[u.uid] = u;
-                return acc;
-            }, {} as {[key: string]: AppUser});
-            
-            // Use functional update to safely merge new user data
-            setMembersInfo(prev => ({...prev, ...newMembersData}));
-            setIsLoading(false); // Stop loading once user info is fetched
-        });
-      } else {
-        setIsLoading(false); // Stop loading if no new users to fetch
-      }
+              acc[u.uid] = u;
+              return acc;
+            }, {} as { [key: string]: AppUser });
+            setMembersInfo(prev => ({ ...prev, ...newMembersData }));
+          });
+        }
+        return currentMembersInfo; // Return current state, the async part will update it later
+      });
       
+      // Stop loading after the first fetch of messages, even if profiles are still coming
+      if (isLoading) {
+          setIsLoading(false);
+      }
     }, (error) => {
       console.error("Error fetching messages:", error);
       setIsLoading(false);
     });
+    unsubscribeRef.current.push(unsubscribeMessages);
 
-    // Cleanup listeners on component unmount
+    // Cleanup function runs when component unmounts or dependencies change
     return () => {
-        unsubscribeGroup();
-        unsubscribeMessages();
+      unsubscribeRef.current.forEach(unsub => unsub());
     };
-  }, [groupId, user?.uid]); // Only re-run when groupId or user ID changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId, user?.uid]);
 
 
   const handleSendMessage = async (message: { text?: string; file?: File }) => {
