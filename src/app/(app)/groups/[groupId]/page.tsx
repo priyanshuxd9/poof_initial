@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, getUsersFromIds, type AppUser } from '@/lib/firebase';
 import { GroupChatHeader } from '@/components/chat/group-header-chat';
 import { MessageList } from '@/components/chat/message-list';
 import { MessageInput } from '@/components/chat/message-input';
@@ -29,6 +29,7 @@ export default function GroupChatPage() {
   const router = useRouter();
 
   const [group, setGroup] = useState<Group | null>(null);
+  const [members, setMembers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export default function GroupChatPage() {
     const groupDocRef = doc(db, 'groups', groupId);
     const unsubscribe = onSnapshot(
       groupDocRef,
-      (docSnap) => {
+      async (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           // Security check: ensure current user is a member
@@ -46,7 +47,15 @@ export default function GroupChatPage() {
             router.replace('/dashboard');
             return;
           }
-          setGroup({ id: docSnap.id, ...data } as Group);
+          const groupData = { id: docSnap.id, ...data } as Group;
+          setGroup(groupData);
+          
+          // Fetch member profiles if they haven't been fetched or have changed
+          if (groupData.memberUserIds && groupData.memberUserIds.length !== members.length) {
+            const memberProfiles = await getUsersFromIds(groupData.memberUserIds);
+            setMembers(memberProfiles);
+          }
+
         } else {
           console.log("Group does not exist.");
           router.replace('/dashboard');
@@ -61,7 +70,7 @@ export default function GroupChatPage() {
     );
 
     return () => unsubscribe();
-  }, [groupId, user, authLoading, router]);
+  }, [groupId, user?.uid, authLoading, router]); // Dependency on user.uid is more stable
 
   if (loading || authLoading) {
     return (
@@ -73,7 +82,11 @@ export default function GroupChatPage() {
             <Skeleton className="h-3 w-24" />
           </div>
         </div>
-        <div className="flex-1 p-4"></div>
+        <div className="flex-1 p-4 space-y-4">
+          <Skeleton className="h-16 w-3/4 ml-auto rounded-lg" />
+          <Skeleton className="h-20 w-3/4 rounded-lg" />
+          <Skeleton className="h-16 w-3/4 ml-auto rounded-lg" />
+        </div>
         <div className="p-4 border-t">
           <Skeleton className="h-10 w-full" />
         </div>
@@ -88,7 +101,7 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-full">
       <GroupChatHeader group={group} />
-      <MessageList groupId={groupId} />
+      <MessageList groupId={groupId} members={members} />
       <MessageInput groupId={groupId} />
     </div>
   );
