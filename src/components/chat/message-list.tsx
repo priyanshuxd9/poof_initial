@@ -66,7 +66,7 @@ export function MessageList({ groupId, messages, membersInfo, isLoading = false,
     <ScrollArea className="flex-1 basis-0 h-0" ref={scrollAreaRef}>
       <div className="p-4 space-y-1" ref={viewportRef}>
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo.get(msg.senderId)} encryptionKey={encryptionKey} />
+          <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo.get(msg.senderId)} encryptionKey={encryptionKey} isEncrypted={groupInfo?.isEncrypted} />
         ))}
       </div>
     </ScrollArea>

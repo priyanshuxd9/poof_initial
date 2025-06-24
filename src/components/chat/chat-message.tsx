@@ -31,9 +31,10 @@ interface ChatMessageProps {
   senderInfo?: AppUser;
   groupId: string;
   encryptionKey?: string;
+  isEncrypted?: boolean;
 }
 
-export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: ChatMessageProps) {
+export function ChatMessage({ message, senderInfo, groupId, encryptionKey, isEncrypted }: ChatMessageProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const isCurrentUserMessage = message.senderId === currentUser?.uid;
@@ -48,6 +49,11 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: Cha
     async function decryptMessage() {
       if (!message.text) {
         setDecryptedText("");
+        return;
+      }
+      
+      if (!isEncrypted) {
+        setDecryptedText(message.text);
         return;
       }
 
@@ -65,12 +71,10 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: Cha
         setDecryptedText("⚠️ Failed to decrypt");
       }
     }
-
-    // Only attempt to decrypt if there's text content.
-    if (message.text) {
-        decryptMessage();
-    }
-  }, [message.text, encryptionKey]);
+    
+    decryptMessage();
+    
+  }, [message.text, encryptionKey, isEncrypted]);
 
 
   const handleReaction = async (emoji: string) => {
@@ -147,9 +151,9 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: Cha
             {!isCurrentUserMessage && (
               <p className="text-xs font-medium">{senderUsername}</p>
             )}
-            {message.text && (
+            {message.text !== undefined && (
                  <p className="text-sm whitespace-pre-wrap break-words flex items-center gap-1.5">
-                   {decryptedText.startsWith('⚠️') && <Lock size={12} className="text-destructive/80 flex-shrink-0" />}
+                   {(isEncrypted && decryptedText.startsWith('⚠️')) && <Lock size={12} className="text-destructive/80 flex-shrink-0" />}
                    {decryptedText}
                  </p>
             )}

@@ -25,6 +25,7 @@ export interface ChatGroupHeaderInfo {
   selfDestructAt: string | Date;
   createdAt: string | Date;
   inviteCode: string;
+  isEncrypted: boolean;
 }
 
 interface GroupHeaderChatProps {

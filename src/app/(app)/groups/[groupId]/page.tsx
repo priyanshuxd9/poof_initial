@@ -52,6 +52,7 @@ export default function GroupChatPage() {
           selfDestructAt: (data.selfDestructAt as Timestamp).toDate().toISOString(),
           createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
           inviteCode: data.inviteCode,
+          isEncrypted: data.isEncrypted || false,
         });
       } else {
         setGroupInfo(null);
@@ -127,7 +128,7 @@ export default function GroupChatPage() {
     try {
         let textToSend = message.text?.trim() ?? "";
         
-        if (groupInfo && (groupInfo as any).isEncrypted) {
+        if (groupInfo?.isEncrypted) {
           if (!encryptionKey) {
             toast({
               title: "Encryption Key Missing",
