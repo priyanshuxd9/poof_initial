@@ -13,6 +13,7 @@ import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, serverTime
 import { useToast } from "@/hooks/use-toast";
 import { useGroupKeys } from "@/hooks/use-group-keys";
 import { importKey, encrypt } from "@/lib/crypto";
+import type { ChatMessageData } from "@/components/chat/chat-message";
 
 
 export default function GroupChatPage() {
@@ -125,7 +126,7 @@ export default function GroupChatPage() {
     }
 
     try {
-        let textToSend = message.text?.trim() ?? "";
+        const textToSend = message.text?.trim() ?? "";
         
         if (!encryptionKey) {
           toast({
@@ -134,16 +135,17 @@ export default function GroupChatPage() {
             variant: "destructive",
           });
           setIsSending(false);
-          return;
+          return; // HARD STOP: Do not proceed without a key.
         }
 
+        // Encryption is now mandatory.
         const key = await importKey(encryptionKey);
-        textToSend = await encrypt(textToSend, key);
+        const encryptedText = await encrypt(textToSend, key);
         
         const messagesColRef = collection(db, 'groups', groupId, 'messages');
         await addDoc(messagesColRef, {
             senderId: user.uid,
-            text: textToSend,
+            text: encryptedText, // Always send the encrypted text.
             timestamp: serverTimestamp(),
             mediaUrl: null,
             mediaType: null,
@@ -159,7 +161,7 @@ export default function GroupChatPage() {
         console.error("Error sending message:", error);
         toast({
             title: "Error Sending Message",
-            description: "Could not send your message. Please try again.",
+            description: "Could not send your message. It might be an issue with the encryption key.",
             variant: "destructive",
         });
     } finally {

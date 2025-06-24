@@ -53,14 +53,15 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: Cha
         return;
       }
       
-      // Heuristic to check if message is likely encrypted (contains a colon)
-      // This is to handle old plaintext messages.
+      // Heuristic to check if message is likely encrypted (contains a colon, which our format iv:ciphertext does).
+      // This handles legacy plaintext messages.
       if (!message.text.includes(':')) {
         setDecryptionStatus("unencrypted");
         setDecryptedText(message.text);
         return;
       }
 
+      // If it looks encrypted, but we don't have a key on this device.
       if (!encryptionKey) {
         setDecryptionStatus("no_key");
         setDecryptedText("Missing encryption key on this device.");
@@ -141,7 +142,7 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: Cha
   const getMessageIcon = () => {
     switch (decryptionStatus) {
       case "pending": return null;
-      case "success": return null; // Could add a Lock icon for successfully decrypted messages if desired
+      case "success": return null; // Successfully decrypted messages don't need an icon.
       case "unencrypted": return <AlertTriangle size={12} className="text-yellow-500 flex-shrink-0" title="This message was not encrypted." />;
       case "no_key": return <Lock size={12} className="text-destructive/80 flex-shrink-0" title="You are missing the key to decrypt this message." />;
       case "error": return <Lock size={12} className="text-destructive/80 flex-shrink-0" title="A decryption error occurred." />;
