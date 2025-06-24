@@ -22,7 +22,7 @@ export default function GroupChatPage() {
 
   const [groupInfo, setGroupInfo] = useState<ChatGroupHeaderInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
-  const [membersInfo, setMembersInfo] = useState<Map<string, AppUser>>(new Map());
+  const [membersInfo, setMembersInfo] = useState<{ [key: string]: AppUser }>({});
   const [isLoadingGroup, setIsLoadingGroup] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -90,14 +90,16 @@ export default function GroupChatPage() {
     if (messages.length === 0) return;
 
     const senderIds = new Set(messages.map(m => m.senderId).filter(Boolean));
-    const newSenderIds = Array.from(senderIds).filter(id => !membersInfo.has(id as string));
+    const newSenderIds = Array.from(senderIds).filter(id => !membersInfo[id as string]);
 
     if (newSenderIds.length > 0) {
       getUsersFromIds(newSenderIds as string[]).then(newUsers => {
-        setMembersInfo(prevMap => {
-          const newMap = new Map(prevMap);
-          newUsers.forEach(user => newMap.set(user.uid, user));
-          return newMap;
+        setMembersInfo(prevInfo => {
+          const updatedInfo = { ...prevInfo };
+          newUsers.forEach(user => {
+            updatedInfo[user.uid] = user;
+          });
+          return updatedInfo;
         });
       });
     }

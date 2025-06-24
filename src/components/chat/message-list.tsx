@@ -13,7 +13,7 @@ import { getInitials } from "@/lib/utils";
 interface MessageListProps {
   groupId: string;
   messages: ChatMessageData[];
-  membersInfo: Map<string, AppUser>;
+  membersInfo: { [key: string]: AppUser };
   isLoading?: boolean;
   groupInfo: ChatGroupHeaderInfo | null;
 }
@@ -64,7 +64,7 @@ export function MessageList({ groupId, messages, membersInfo, isLoading = false,
     <ScrollArea className="flex-1 basis-0" viewportRef={viewportRef}>
       <div className="p-4 space-y-1">
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo.get(msg.senderId)} />
+          <ChatMessage key={msg.id} groupId={groupId} message={msg} senderInfo={membersInfo[msg.senderId]} />
         ))}
       </div>
     </ScrollArea>
