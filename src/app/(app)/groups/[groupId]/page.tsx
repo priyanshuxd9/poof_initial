@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { db, getUsersFromIds, type AppUser } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { useGroupKeys } from "@/hooks/use-group-keys";
+import { importKey, encrypt } from "@/lib/crypto";
 
 
 export default function GroupChatPage() {
@@ -18,6 +20,7 @@ export default function GroupChatPage() {
   const groupId = params.groupId as string;
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getKey } = useGroupKeys();
 
   const [groupInfo, setGroupInfo] = useState<ChatGroupHeaderInfo | null>(null);
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
@@ -25,6 +28,13 @@ export default function GroupChatPage() {
   const [isLoadingGroup, setIsLoadingGroup] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [encryptionKey, setEncryptionKey] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (groupId) {
+      setEncryptionKey(getKey(groupId));
+    }
+  }, [groupId, getKey]);
 
   useEffect(() => {
     if (!groupId) return;
@@ -115,11 +125,26 @@ export default function GroupChatPage() {
     }
 
     try {
+        let textToSend = message.text?.trim() ?? "";
+        
+        if (groupInfo && (groupInfo as any).isEncrypted) {
+          if (!encryptionKey) {
+            toast({
+              title: "Encryption Key Missing",
+              description: "Cannot send message. The key for this group is not available.",
+              variant: "destructive",
+            });
+            setIsSending(false);
+            return;
+          }
+          const key = await importKey(encryptionKey);
+          textToSend = await encrypt(textToSend, key);
+        }
+        
         const messagesColRef = collection(db, 'groups', groupId, 'messages');
         await addDoc(messagesColRef, {
             senderId: user.uid,
-            // No longer storing username or avatar URL on the message document
-            text: message.text?.trim(),
+            text: textToSend,
             timestamp: serverTimestamp(),
             mediaUrl: null,
             mediaType: null,
@@ -147,7 +172,7 @@ export default function GroupChatPage() {
     return (
       <div className="flex flex-col h-full">
         {/* Skeleton for Header */}
-        <div className="bg-card border-b p-4 shadow-sm">
+        <div className="bg-card border-b p-3 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Skeleton className="h-10 w-10 rounded-full" />
@@ -189,7 +214,7 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-full bg-background">
       <GroupHeaderChat group={groupInfo} />
-      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} groupInfo={groupInfo} />
+      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoadingMessages} groupInfo={groupInfo} encryptionKey={encryptionKey}/>
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </div>
   );

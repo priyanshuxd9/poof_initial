@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
+import { useGroupKeys } from "@/hooks/use-group-keys";
 import {
   collection,
   query,
@@ -38,15 +39,18 @@ interface JoinGroupDialogProps {
 
 export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
   const [inviteCode, setInviteCode] = useState("");
+  const [encryptionKey, setEncryptionKey] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const router = useRouter();
+  const { setKey: setLocalEncryptionKey } = useGroupKeys();
   
   useEffect(() => {
     // Reset state when dialog is closed for a clean slate next time
     if (!open) {
       setInviteCode("");
+      setEncryptionKey("");
       setIsJoining(false);
     }
   }, [open]);
@@ -64,11 +68,12 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
     if (!inviteCode.trim()) {
       toast({
         title: "Invite Code Required",
-        description: "Please enter an invite code to join a group.",
+        description: "Please enter an invite code.",
         variant: "destructive",
       });
       return;
     }
+
     setIsJoining(true);
 
     try {
@@ -88,6 +93,17 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
 
       const groupDoc = querySnapshot.docs[0];
       const groupData = groupDoc.data();
+      const groupId = groupDoc.id;
+
+      if (groupData.isEncrypted && !encryptionKey.trim()) {
+        toast({
+          title: "Encryption Key Required",
+          description: "This group is end-to-end encrypted. Please provide the encryption key.",
+          variant: "destructive",
+        });
+        setIsJoining(false);
+        return;
+      }
 
       if (groupData.memberUserIds && groupData.memberUserIds.includes(user.uid)) {
         toast({
@@ -109,11 +125,16 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         return;
       }
 
-      const groupDocRef = doc(db, "groups", groupDoc.id);
+      const groupDocRef = doc(db, "groups", groupId);
       await updateDoc(groupDocRef, {
         memberUserIds: arrayUnion(user.uid),
         lastActivity: serverTimestamp(),
       });
+
+      // Save the encryption key to local storage for this group
+      if (groupData.isEncrypted) {
+        setLocalEncryptionKey(groupId, encryptionKey);
+      }
 
       toast({
         title: "Successfully Joined Group!",
@@ -139,20 +160,27 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         <DialogHeader>
           <DialogTitle>Join a Poof Group</DialogTitle>
           <DialogDescription>
-            Enter the invite code (case-sensitive) you received to join an existing group.
+            Enter the invite code and encryption key (if required) to join an existing group.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="invite-code" className="text-right">
-              Invite Code
-            </Label>
+          <div className="space-y-2">
+            <Label htmlFor="invite-code">Invite Code</Label>
             <Input
               id="invite-code"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
-              className="col-span-3"
               placeholder="Enter code..."
+              disabled={isJoining}
+            />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="encryption-key">Encryption Key</Label>
+            <Input
+              id="encryption-key"
+              value={encryptionKey}
+              onChange={(e) => setEncryptionKey(e.target.value)}
+              placeholder="Required for encrypted groups..."
               disabled={isJoining}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             />
@@ -160,7 +188,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isJoining}>Cancel</Button>
-          <Button type="button" onClick={handleSubmit} disabled={isJoining}>
+          <Button type="button" onClick={handleSubmit} disabled={isJoining || !inviteCode.trim()}>
             {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Join Group
           </Button>

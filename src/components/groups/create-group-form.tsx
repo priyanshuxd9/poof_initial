@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import React, { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Wand2, Timer, Loader2, Users, Trash2, ImagePlus } from "lucide-react";
+import { Wand2, Timer, Loader2, Users, Trash2, ImagePlus, KeyRound, Copy, Check } from "lucide-react";
 import imageCompression from 'browser-image-compression';
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,9 @@ import { db, storage } from "@/lib/firebase";
 import { collection, doc, serverTimestamp, Timestamp, setDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { generateKey, exportKey } from "@/lib/crypto";
+import { useGroupKeys } from "@/hooks/use-group-keys";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from "@/components/ui/alert-dialog";
 
 
 const createGroupSchema = z.object({
@@ -43,15 +46,28 @@ const createGroupSchema = z.object({
 
 type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
 
+interface NewGroupInfo {
+  groupId: string;
+  groupName: string;
+  inviteCode: string;
+  encryptionKey: string;
+}
+
 export function CreateGroupForm() {
   const [isPending, startTransition] = useTransition();
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [groupImage, setGroupImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const [newGroupInfo, setNewGroupInfo] = useState<NewGroupInfo | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useAuth();
+  const { setKey: setEncryptionKey } = useGroupKeys();
 
   const form = useForm<CreateGroupFormValues>({
     resolver: zodResolver(createGroupSchema),
@@ -138,6 +154,18 @@ export function CreateGroupForm() {
     }
   };
 
+  const handleCopy = (text: string, type: 'code' | 'key') => {
+    navigator.clipboard.writeText(text);
+    if (type === 'code') {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } else {
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    }
+  };
+
+
   const onSubmit = (values: CreateGroupFormValues) => {
     if (!user || !user.uid) {
       toast({
@@ -150,13 +178,10 @@ export function CreateGroupForm() {
 
     startTransition(async () => {
       try {
-        // 1. Generate a new group document reference to get a unique ID upfront.
         const groupDocRef = doc(collection(db, "groups"));
         const groupId = groupDocRef.id;
 
         let finalImageUrl: string | null = null;
-
-        // 2. If an image was selected, upload it to Storage using the new groupId.
         if (groupImage) {
           const filePath = `group-avatars/${groupId}/avatar.jpg`;
           const sRef = storageRef(storage, filePath);
@@ -164,7 +189,11 @@ export function CreateGroupForm() {
           finalImageUrl = await getDownloadURL(sRef);
         }
         
-        // 3. Prepare the complete group document data.
+        // E2EE Key Generation
+        const newKey = await generateKey();
+        const exportedKey = await exportKey(newKey);
+        setEncryptionKey(groupId, exportedKey);
+
         const inviteCode = generateInviteCode();
         const selfDestructDate = new Date();
         selfDestructDate.setDate(selfDestructDate.getDate() + values.selfDestructTimerDays);
@@ -181,16 +210,19 @@ export function CreateGroupForm() {
           selfDestructAt: Timestamp.fromDate(selfDestructDate),
           imageUrl: finalImageUrl,
           lastActivity: serverTimestamp(),
+          isEncrypted: true, // Flag to indicate E2EE
         };
 
-        // 4. Create the document in Firestore with a single setDoc call.
         await setDoc(groupDocRef, groupDocData);
 
-        toast({
-          title: "Group Created!",
-          description: `Your group "${values.groupName}" is live. Invite code: ${inviteCode}`,
+        setNewGroupInfo({
+          groupId,
+          groupName: values.groupName,
+          inviteCode,
+          encryptionKey: exportedKey,
         });
-        router.push(`/groups/${groupId}`); 
+        setIsInfoDialogOpen(true);
+
       } catch (error: any) {
         console.error("Group creation failed:", error);
         toast({
@@ -203,6 +235,7 @@ export function CreateGroupForm() {
   };
 
   return (
+    <>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormItem>
@@ -333,5 +366,43 @@ export function CreateGroupForm() {
         </Button>
       </form>
     </Form>
+    {newGroupInfo && (
+      <AlertDialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Group "{newGroupInfo.groupName}" Created!</AlertDialogTitle>
+            <AlertDialogDescription>
+              To invite others, you MUST share both the Invite Code and the unique Encryption Key. Without the key, messages cannot be read.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 my-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-code">Invite Code</Label>
+              <div className="flex gap-2">
+                <Input id="invite-code" value={newGroupInfo.inviteCode} readOnly />
+                <Button variant="outline" size="icon" onClick={() => handleCopy(newGroupInfo.inviteCode, 'code')}>
+                  {copiedCode ? <Check className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="encryption-key">Encryption Key</Label>
+              <div className="flex gap-2">
+                <Input id="encryption-key" value={newGroupInfo.encryptionKey} readOnly className="font-mono text-xs"/>
+                <Button variant="outline" size="icon" onClick={() => handleCopy(newGroupInfo.encryptionKey, 'key')}>
+                  {copiedKey ? <Check className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => router.push(`/groups/${newGroupInfo.groupId}`)}>
+              Got it, go to chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    )}
+    </>
   );
 }

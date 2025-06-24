@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from "next/image";
-import { ThumbsUp, SmilePlus } from "lucide-react";
+import { ThumbsUp, SmilePlus, Lock } from "lucide-react";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db, type AppUser } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatDetailedTimestamp, getInitials } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { importKey, decrypt } from "@/lib/crypto";
 
 export interface ChatMessageData {
   id: string;
@@ -29,17 +30,47 @@ interface ChatMessageProps {
   message: ChatMessageData;
   senderInfo?: AppUser;
   groupId: string;
+  encryptionKey?: string;
 }
 
-export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) {
+export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: ChatMessageProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const isCurrentUserMessage = message.senderId === currentUser?.uid;
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [decryptedText, setDecryptedText] = useState("... decrypting");
   
   const senderUsername = senderInfo?.username || '...';
   const senderAvatarUrl = senderInfo?.photoURL;
   const availableReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+  
+  useEffect(() => {
+    async function decryptMessage() {
+      if (!message.text) {
+        setDecryptedText("");
+        return;
+      }
+
+      if (!encryptionKey) {
+        setDecryptedText("⚠️ Missing key");
+        return;
+      }
+
+      try {
+        const key = await importKey(encryptionKey);
+        const decrypted = await decrypt(message.text, key);
+        setDecryptedText(decrypted);
+      } catch (e) {
+        console.error("Decryption failed:", e);
+        setDecryptedText("⚠️ Failed to decrypt");
+      }
+    }
+
+    // Only attempt to decrypt if there's text content.
+    if (message.text) {
+        decryptMessage();
+    }
+  }, [message.text, encryptionKey]);
 
 
   const handleReaction = async (emoji: string) => {
@@ -52,15 +83,9 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
     
     try {
         if (userHasReacted) {
-            // Atomically remove a user's ID from the array.
-            await updateDoc(messageRef, {
-                [fieldPath]: arrayRemove(currentUser.uid)
-            });
+            await updateDoc(messageRef, { [fieldPath]: arrayRemove(currentUser.uid) });
         } else {
-            // Atomically add a new user's ID to the array.
-            await updateDoc(messageRef, {
-                [fieldPath]: arrayUnion(currentUser.uid)
-            });
+            await updateDoc(messageRef, { [fieldPath]: arrayUnion(currentUser.uid) });
         }
     } catch (error) {
         console.error("Error updating reaction:", error);
@@ -122,7 +147,12 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
             {!isCurrentUserMessage && (
               <p className="text-xs font-medium">{senderUsername}</p>
             )}
-            {message.text && <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>}
+            {message.text && (
+                 <p className="text-sm whitespace-pre-wrap break-words flex items-center gap-1.5">
+                   {decryptedText.startsWith('⚠️') && <Lock size={12} className="text-destructive/80 flex-shrink-0" />}
+                   {decryptedText}
+                 </p>
+            )}
             {message.mediaUrl && message.mediaType === "image" && (
               <Image
                 src={message.mediaUrl}
@@ -141,7 +171,6 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
           </CardContent>
         </Card>
 
-        {/* Display existing reactions */}
         {message.reactions && Object.keys(message.reactions).length > 0 && (
           <div className="flex gap-1.5 flex-wrap mt-1 px-2" style={{ clear: 'both' }}>
             {Object.entries(message.reactions).map(([emoji, users]) => {
