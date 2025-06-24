@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from "next/image";
-import { ThumbsUp, SmilePlus, Lock } from "lucide-react";
+import { ThumbsUp, SmilePlus, Lock, AlertTriangle } from "lucide-react";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db, type AppUser } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -31,15 +31,15 @@ interface ChatMessageProps {
   senderInfo?: AppUser;
   groupId: string;
   encryptionKey?: string;
-  isEncrypted?: boolean;
 }
 
-export function ChatMessage({ message, senderInfo, groupId, encryptionKey, isEncrypted }: ChatMessageProps) {
+export function ChatMessage({ message, senderInfo, groupId, encryptionKey }: ChatMessageProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const isCurrentUserMessage = message.senderId === currentUser?.uid;
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [decryptedText, setDecryptedText] = useState("... decrypting");
+  const [decryptedText, setDecryptedText] = useState("...");
+  const [decryptionStatus, setDecryptionStatus] = useState<"pending" | "success" | "unencrypted" | "no_key" | "error">("pending");
   
   const senderUsername = senderInfo?.username || '...';
   const senderAvatarUrl = senderInfo?.photoURL;
@@ -48,33 +48,40 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey, isEnc
   useEffect(() => {
     async function decryptMessage() {
       if (!message.text) {
+        setDecryptionStatus("success");
         setDecryptedText("");
         return;
       }
       
-      if (!isEncrypted) {
+      // Heuristic to check if message is likely encrypted (contains a colon)
+      // This is to handle old plaintext messages.
+      if (!message.text.includes(':')) {
+        setDecryptionStatus("unencrypted");
         setDecryptedText(message.text);
         return;
       }
 
       if (!encryptionKey) {
-        setDecryptedText("⚠️ Missing key");
+        setDecryptionStatus("no_key");
+        setDecryptedText("Missing encryption key on this device.");
         return;
       }
 
       try {
         const key = await importKey(encryptionKey);
         const decrypted = await decrypt(message.text, key);
+        setDecryptionStatus("success");
         setDecryptedText(decrypted);
       } catch (e) {
         console.error("Decryption failed:", e);
-        setDecryptedText("⚠️ Failed to decrypt");
+        setDecryptionStatus("error");
+        setDecryptedText("This message could not be decrypted.");
       }
     }
     
     decryptMessage();
     
-  }, [message.text, encryptionKey, isEncrypted]);
+  }, [message.text, encryptionKey]);
 
 
   const handleReaction = async (emoji: string) => {
@@ -131,6 +138,17 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey, isEnc
     </div>
   );
 
+  const getMessageIcon = () => {
+    switch (decryptionStatus) {
+      case "pending": return null;
+      case "success": return null; // Could add a Lock icon for successfully decrypted messages if desired
+      case "unencrypted": return <AlertTriangle size={12} className="text-yellow-500 flex-shrink-0" title="This message was not encrypted." />;
+      case "no_key": return <Lock size={12} className="text-destructive/80 flex-shrink-0" title="You are missing the key to decrypt this message." />;
+      case "error": return <Lock size={12} className="text-destructive/80 flex-shrink-0" title="A decryption error occurred." />;
+      default: return null;
+    }
+  }
+
 
   return (
     <div className={cn("flex gap-3 py-1 px-2 group", isCurrentUserMessage ? "justify-end" : "justify-start")}>
@@ -145,16 +163,19 @@ export function ChatMessage({ message, senderInfo, groupId, encryptionKey, isEnc
       <div className={cn("max-w-[70%] space-y-1 flex flex-col", isCurrentUserMessage ? "items-end" : "items-start")}>
         <Card className={cn(
             "rounded-2xl shadow-sm", 
-            isCurrentUserMessage ? "bg-primary text-primary-foreground rounded-br-none" : "bg-card text-card-foreground rounded-bl-none"
+            isCurrentUserMessage ? "bg-primary text-primary-foreground rounded-br-none" : "bg-card text-card-foreground rounded-bl-none",
+            (decryptionStatus === "error" || decryptionStatus === "no_key" || decryptionStatus === "unencrypted") && "bg-destructive/10 border-destructive/20"
         )}>
           <CardContent className="p-3 space-y-2">
             {!isCurrentUserMessage && (
               <p className="text-xs font-medium">{senderUsername}</p>
             )}
             {message.text !== undefined && (
-                 <p className="text-sm whitespace-pre-wrap break-words flex items-center gap-1.5">
-                   {(isEncrypted && decryptedText.startsWith('⚠️')) && <Lock size={12} className="text-destructive/80 flex-shrink-0" />}
-                   {decryptedText}
+                 <p className={cn("text-sm whitespace-pre-wrap break-words flex items-center gap-1.5",
+                    decryptionStatus !== "success" && "text-destructive/90"
+                 )}>
+                   {getMessageIcon()}
+                   <span>{decryptedText}</span>
                  </p>
             )}
             {message.mediaUrl && message.mediaType === "image" && (

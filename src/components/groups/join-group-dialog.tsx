@@ -95,10 +95,12 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       const groupData = groupDoc.data();
       const groupId = groupDoc.id;
 
-      if (groupData.isEncrypted && !encryptionKey.trim()) {
+      // A group is considered encrypted if `isEncrypted` is not explicitly false.
+      // This enforces the key requirement for all new groups and old groups (where the flag is undefined).
+      if (groupData.isEncrypted !== false && !encryptionKey.trim()) {
         toast({
           title: "Encryption Key Required",
-          description: "This group is end-to-end encrypted. Please provide the encryption key.",
+          description: "This group is end-to-end encrypted. Please provide the encryption key to join.",
           variant: "destructive",
         });
         setIsJoining(false);
@@ -111,6 +113,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
           description: `You are already a member of "${groupData.name}".`,
         });
         onOpenChange(false);
+        router.push(`/groups/${groupId}`);
         return;
       }
       
@@ -131,8 +134,8 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         lastActivity: serverTimestamp(),
       });
 
-      // Save the encryption key to local storage for this group
-      if (groupData.isEncrypted) {
+      // Save the encryption key to local storage for this group if it's an encrypted group
+      if (groupData.isEncrypted !== false) {
         setLocalEncryptionKey(groupId, encryptionKey);
       }
 
@@ -160,7 +163,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         <DialogHeader>
           <DialogTitle>Join a Poof Group</DialogTitle>
           <DialogDescription>
-            Enter the invite code and encryption key (if required) to join an existing group.
+            Enter the invite code and encryption key to join an existing group. The key is required for all groups now.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -180,7 +183,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
               id="encryption-key"
               value={encryptionKey}
               onChange={(e) => setEncryptionKey(e.target.value)}
-              placeholder="Required for encrypted groups..."
+              placeholder="Required for all groups..."
               disabled={isJoining}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             />
@@ -188,7 +191,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isJoining}>Cancel</Button>
-          <Button type="button" onClick={handleSubmit} disabled={isJoining || !inviteCode.trim()}>
+          <Button type="button" onClick={handleSubmit} disabled={isJoining || !inviteCode.trim() || !encryptionKey.trim()}>
             {isJoining && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Join Group
           </Button>

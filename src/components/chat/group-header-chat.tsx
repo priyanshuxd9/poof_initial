@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Users, Info, Clock, Share2, Copy, Settings } from "lucide-react";
+import { ChevronLeft, Users, Info, Clock, Share2, Copy, Settings, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -25,7 +25,6 @@ export interface ChatGroupHeaderInfo {
   selfDestructAt: string | Date;
   createdAt: string | Date;
   inviteCode: string;
-  isEncrypted: boolean;
 }
 
 interface GroupHeaderChatProps {
@@ -84,12 +83,12 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
     navigator.clipboard.writeText(group.inviteCode);
     toast({
       title: "Invite Code Copied!",
-      description: `Code: ${group.inviteCode}`,
+      description: `Code: ${group.inviteCode}. Don't forget to also share the encryption key!`,
     });
   };
 
   return (
-    <div className="bg-card border-b p-3 shadow-sm">
+    <div className="bg-card border-b p-2 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild className="mr-1 md:hidden">
@@ -102,7 +101,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
             <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(group.name)}</AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">{group.name}</h1>
+            <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">{group.name} <Lock className="h-3 w-3 text-muted-foreground" title="End-to-End Encrypted"/></h1>
             <div className="text-xs text-muted-foreground flex items-center">
               <Users className="h-3 w-3 mr-1" /> {group.memberCount}
               <span className="mx-1.5">·</span> 
@@ -136,7 +135,7 @@ export function GroupHeaderChat({ group }: GroupHeaderChatProps) {
           </DropdownMenu>
         </div>
       </div>
-      <Progress value={timeRemainingPercent} className="h-1.5 mt-3" />
+      <Progress value={timeRemainingPercent} className="h-1.5 mt-2" />
       {showWarning && timeRemainingText !== "Poofed!" && (
         <Alert variant="destructive" className="mt-3 animate-pulse">
           <Clock className="h-4 w-4" />

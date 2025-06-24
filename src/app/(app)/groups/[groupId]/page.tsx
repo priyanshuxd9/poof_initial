@@ -4,7 +4,7 @@
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { GroupHeaderChat, type ChatGroupHeaderInfo } from "@/components/chat/group-header-chat";
-import { MessageList, type ChatMessageData } from "@/components/chat/message-list";
+import { MessageList } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
 import { useAuth } from "@/contexts/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,7 +52,6 @@ export default function GroupChatPage() {
           selfDestructAt: (data.selfDestructAt as Timestamp).toDate().toISOString(),
           createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
           inviteCode: data.inviteCode,
-          isEncrypted: data.isEncrypted || false,
         });
       } else {
         setGroupInfo(null);
@@ -128,19 +127,18 @@ export default function GroupChatPage() {
     try {
         let textToSend = message.text?.trim() ?? "";
         
-        if (groupInfo?.isEncrypted) {
-          if (!encryptionKey) {
-            toast({
-              title: "Encryption Key Missing",
-              description: "Cannot send message. The key for this group is not available.",
-              variant: "destructive",
-            });
-            setIsSending(false);
-            return;
-          }
-          const key = await importKey(encryptionKey);
-          textToSend = await encrypt(textToSend, key);
+        if (!encryptionKey) {
+          toast({
+            title: "Encryption Key Missing",
+            description: "Cannot send message. The key for this group is not available on this device. Please re-join with the key.",
+            variant: "destructive",
+          });
+          setIsSending(false);
+          return;
         }
+
+        const key = await importKey(encryptionKey);
+        textToSend = await encrypt(textToSend, key);
         
         const messagesColRef = collection(db, 'groups', groupId, 'messages');
         await addDoc(messagesColRef, {
@@ -173,7 +171,7 @@ export default function GroupChatPage() {
     return (
       <div className="flex flex-col h-full">
         {/* Skeleton for Header */}
-        <div className="bg-card border-b p-3 shadow-sm">
+        <div className="bg-card border-b p-2 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Skeleton className="h-10 w-10 rounded-full" />
@@ -184,7 +182,7 @@ export default function GroupChatPage() {
             </div>
             <Skeleton className="h-8 w-20 rounded" />
           </div>
-          <Skeleton className="h-1.5 mt-3 w-full" />
+          <Skeleton className="h-1.5 mt-2 w-full" />
         </div>
         {/* Skeleton for Message List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
