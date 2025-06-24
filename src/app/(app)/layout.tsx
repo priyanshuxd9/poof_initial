@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { AppHeader } from '@/components/shared/app-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +10,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  // The chat page uses a different, full-screen layout.
+  // This regex matches /groups/[alphanumeric-id] but not sub-pages like /info
+  const isChatPage = /^\/groups\/[a-zA-Z0-9]+$/.test(pathname);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -49,7 +54,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+  
+  // Render a special, full-screen layout for the chat page
+  if (isChatPage) {
+    return (
+        <div className="h-screen bg-background">
+            {children}
+        </div>
+    );
+  }
 
+  // Render the standard layout for all other app pages
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <AppHeader />
