@@ -2,7 +2,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { GroupHeaderChat, type ChatGroupHeaderInfo } from "@/components/chat/group-header-chat";
 import { MessageList } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
@@ -25,74 +25,61 @@ export default function GroupChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  // Memoize member IDs to prevent unnecessary re-fetches of profiles
-  const memberIds = useMemo(() => groupInfo?.memberCount ? (groupInfo as any).memberUserIds || [] : [], [groupInfo]);
-
-  // Effect 1: Listen to the group document for metadata changes
   useEffect(() => {
     if (!groupId || !user?.uid) {
-        setIsLoading(false);
-        return;
+      setIsLoading(false);
+      return;
     }
     setIsLoading(true);
 
+    // Listener for the group document. This also fetches member profiles.
     const groupDocRef = doc(db, "groups", groupId);
-    const unsubscribeGroup = onSnapshot(groupDocRef, (groupSnap) => {
+    const unsubscribeGroup = onSnapshot(groupDocRef, async (groupSnap) => {
       if (!groupSnap.exists() || !groupSnap.data()?.memberUserIds?.includes(user.uid)) {
         setGroupInfo(null);
+        setMembersInfo({});
         setMessages([]);
         setIsLoading(false);
         return;
       }
+
       const groupData = groupSnap.data();
+      const memberIds = groupData.memberUserIds || [];
+
       setGroupInfo({
         id: groupSnap.id,
         name: groupData.name,
-        memberCount: groupData.memberUserIds?.length || 0,
+        memberCount: memberIds.length,
         imageUrl: groupData.imageUrl,
         selfDestructAt: (groupData.selfDestructAt as Timestamp).toDate().toISOString(),
         createdAt: (groupData.createdAt as Timestamp).toDate().toISOString(),
         inviteCode: groupData.inviteCode,
-        // Keep memberUserIds here for the other effect to use
-        memberUserIds: groupData.memberUserIds,
       });
+
+      if (memberIds.length > 0) {
+        try {
+            const users = await getUsersFromIds(memberIds);
+            const membersMap = users.reduce((acc, u) => {
+                acc[u.uid] = u;
+                return acc;
+            }, {} as { [key: string]: AppUser });
+            setMembersInfo(membersMap);
+        } catch (error) {
+            console.error("Error fetching member profiles:", error);
+            toast({ title: "Error", description: "Could not load member profiles.", variant: "destructive" });
+        }
+      } else {
+        setMembersInfo({});
+      }
     }, (error) => {
       console.error("Error fetching group details:", error);
-      setGroupInfo(null);
+      toast({ title: "Error", description: "Could not load group details.", variant: "destructive" });
       setIsLoading(false);
     });
 
-    return () => unsubscribeGroup();
-  }, [groupId, user?.uid]);
-
-  // Effect 2: Fetch member profiles ONLY when the list of member IDs changes
-  useEffect(() => {
-    if (memberIds.length === 0) return;
-    
-    // Determine which members we haven't fetched yet
-    const newMemberIds = memberIds.filter((id: string) => !membersInfo[id]);
-
-    if (newMemberIds.length > 0) {
-        getUsersFromIds(newMemberIds).then(newUsers => {
-            setMembersInfo(prev => {
-                const updatedMembers = { ...prev };
-                newUsers.forEach(u => {
-                    updatedMembers[u.uid] = u;
-                });
-                return updatedMembers;
-            });
-        }).catch(error => console.error("Error fetching member profiles:", error));
-    }
-  }, [memberIds, membersInfo]);
-
-
-  // Effect 3: Listen for messages
-  useEffect(() => {
-    if (!groupId) return;
-
+    // SEPARATE listener for messages.
     const messagesColRef = collection(db, "groups", groupId, "messages");
     const q = query(messagesColRef, orderBy("timestamp", "asc"));
-    
     const unsubscribeMessages = onSnapshot(q, (messagesSnap) => {
       const newMessagesData: ChatMessageData[] = messagesSnap.docs.map(doc => {
         const data = doc.data();
@@ -106,17 +93,19 @@ export default function GroupChatPage() {
           reactions: data.reactions || {},
         };
       });
-      
       setMessages(newMessagesData);
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching messages:", error);
-      toast({ title: "Error", description: "Could not load messages.", variant: "destructive"});
+      toast({ title: "Error", description: "Could not load messages.", variant: "destructive" });
       setIsLoading(false);
     });
 
-    return () => unsubscribeMessages();
-  }, [groupId, toast]);
+    return () => {
+      unsubscribeGroup();
+      unsubscribeMessages();
+    };
+  }, [groupId, user?.uid, toast]);
 
   const handleSendMessage = async (text: string) => {
     if (!user || !groupId || !text.trim()) return;
