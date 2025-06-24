@@ -25,28 +25,24 @@ export default function GroupChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  // This ref will hold the unsubscribe functions for our listeners
-  const unsubscribeRef = useRef<(() => void)[]>([]);
+  // This ref will track which user profiles we have already fetched
+  const fetchedUserIds = useRef(new Set<string>());
 
   useEffect(() => {
+    // Only proceed if we have a group and user
     if (!groupId || !user?.uid) {
       setIsLoading(false);
       return;
     }
-    setIsLoading(true);
 
-    // Reset state for new group
+    // Reset all state when changing groups
+    setIsLoading(true);
     setGroupInfo(null);
     setMessages([]);
     setMembersInfo({});
+    fetchedUserIds.current.clear();
     
-    // Clear any previous listeners
-    unsubscribeRef.current.forEach(unsub => unsub());
-    unsubscribeRef.current = [];
-
-    // --- Set up new listeners ---
-
-    // 1. Group Info Listener
+    // 1. Subscribe to Group Info
     const groupDocRef = doc(db, "groups", groupId);
     const unsubscribeGroup = onSnapshot(groupDocRef, (docSnap) => {
       if (docSnap.exists() && docSnap.data().memberUserIds?.includes(user.uid)) {
@@ -61,6 +57,7 @@ export default function GroupChatPage() {
           inviteCode: data.inviteCode,
         });
       } else {
+        // Group not found or user not a member
         setGroupInfo(null);
         setIsLoading(false);
       }
@@ -69,16 +66,18 @@ export default function GroupChatPage() {
       setGroupInfo(null);
       setIsLoading(false);
     });
-    unsubscribeRef.current.push(unsubscribeGroup);
 
-    // 2. Messages Listener
+    // 2. Subscribe to Messages
     const messagesColRef = collection(db, "groups", groupId, "messages");
     const q = query(messagesColRef, orderBy("timestamp", "asc"));
     
-    const unsubscribeMessages = onSnapshot(q, async (querySnapshot) => {
-      const newMessages: ChatMessageData[] = querySnapshot.docs.map(doc => {
+    const unsubscribeMessages = onSnapshot(q, (querySnapshot) => {
+      const newMessagesData: ChatMessageData[] = [];
+      const senderIdsInSnapshot = new Set<string>();
+
+      querySnapshot.forEach(doc => {
         const data = doc.data();
-        return {
+        newMessagesData.push({
           id: doc.id,
           senderId: data.senderId,
           text: data.text,
@@ -86,27 +85,32 @@ export default function GroupChatPage() {
           mediaType: data.mediaType,
           timestamp: (data.timestamp as Timestamp)?.toDate()?.toISOString() || new Date().toISOString(),
           reactions: data.reactions || {},
-        };
-      });
-      setMessages(newMessages);
-
-      const senderIds = [...new Set(newMessages.map(m => m.senderId).filter(Boolean))];
-      // Use a functional state update to access the latest `membersInfo`
-      setMembersInfo(currentMembersInfo => {
-        const idsToFetch = senderIds.filter(id => !currentMembersInfo[id]);
-        if (idsToFetch.length > 0) {
-          getUsersFromIds(idsToFetch).then(newUsers => {
-            const newMembersData = newUsers.reduce((acc, u) => {
-              acc[u.uid] = u;
-              return acc;
-            }, {} as { [key: string]: AppUser });
-            setMembersInfo(prev => ({ ...prev, ...newMembersData }));
-          });
+        });
+        if (data.senderId) {
+            senderIdsInSnapshot.add(data.senderId);
         }
-        return currentMembersInfo; // Return current state, the async part will update it later
       });
       
-      // Stop loading after the first fetch of messages, even if profiles are still coming
+      setMessages(newMessagesData);
+
+      const idsToFetch = Array.from(senderIdsInSnapshot).filter(id => !fetchedUserIds.current.has(id));
+      
+      if (idsToFetch.length > 0) {
+        // Mark these as "fetching" so we don't try again
+        idsToFetch.forEach(id => fetchedUserIds.current.add(id));
+        
+        getUsersFromIds(idsToFetch).then(newUsers => {
+          setMembersInfo(prevMembers => {
+            const updatedMembers = { ...prevMembers };
+            newUsers.forEach(u => {
+              updatedMembers[u.uid] = u;
+            });
+            return updatedMembers;
+          });
+        });
+      }
+
+      // We can stop the main loading indicator after the first successful message fetch
       if (isLoading) {
           setIsLoading(false);
       }
@@ -114,13 +118,15 @@ export default function GroupChatPage() {
       console.error("Error fetching messages:", error);
       setIsLoading(false);
     });
-    unsubscribeRef.current.push(unsubscribeMessages);
 
-    // Cleanup function runs when component unmounts or dependencies change
+    // Cleanup listeners on component unmount or when dependencies change
     return () => {
-      unsubscribeRef.current.forEach(unsub => unsub());
+      unsubscribeGroup();
+      unsubscribeMessages();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    
+  // This dependency array is now stable and correct. It will only re-run
+  // when the user navigates to a new group or logs in/out.
   }, [groupId, user?.uid]);
 
 
