@@ -115,7 +115,7 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
             )}
             {message.text && (
                  <p className="text-sm whitespace-pre-wrap break-words">
-                   <span>{message.text}</span>
+                   {message.text}
                  </p>
             )}
           </CardContent>
@@ -133,7 +133,7 @@ export function ChatMessage({ message, senderInfo, groupId }: ChatMessageProps) 
                   className={cn(
                     "flex items-center gap-1 text-xs rounded-full px-2 py-0.5 transition-colors",
                     currentUserReacted 
-                      ? 'bg-primary-foreground text-primary' 
+                      ? 'bg-primary-foreground text-primary border border-primary/50' 
                       : 'bg-muted hover:bg-muted/80'
                   )}
                   aria-label={`React with ${emoji}`}

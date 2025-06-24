@@ -2,7 +2,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { GroupHeaderChat, type ChatGroupHeaderInfo } from "@/components/chat/group-header-chat";
 import { MessageList } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
@@ -25,93 +25,98 @@ export default function GroupChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  // Effect for setting up all listeners
+  // Memoize member IDs to prevent unnecessary re-fetches of profiles
+  const memberIds = useMemo(() => groupInfo?.memberCount ? (groupInfo as any).memberUserIds || [] : [], [groupInfo]);
+
+  // Effect 1: Listen to the group document for metadata changes
   useEffect(() => {
     if (!groupId || !user?.uid) {
-      setIsLoading(false);
-      return;
+        setIsLoading(false);
+        return;
     }
-
     setIsLoading(true);
 
     const groupDocRef = doc(db, "groups", groupId);
-    
-    let unsubscribeMessages: (() => void) | null = null;
-
-    // Listen to the group document for changes
-    const unsubscribeGroup = onSnapshot(groupDocRef, async (groupSnap) => {
+    const unsubscribeGroup = onSnapshot(groupDocRef, (groupSnap) => {
       if (!groupSnap.exists() || !groupSnap.data()?.memberUserIds?.includes(user.uid)) {
         setGroupInfo(null);
         setMessages([]);
         setIsLoading(false);
-        if (unsubscribeMessages) unsubscribeMessages();
         return;
       }
-
       const groupData = groupSnap.data();
-      const memberIds: string[] = groupData.memberUserIds || [];
-
-      // Update group info state
       setGroupInfo({
         id: groupSnap.id,
         name: groupData.name,
-        memberCount: memberIds.length,
+        memberCount: groupData.memberUserIds?.length || 0,
         imageUrl: groupData.imageUrl,
         selfDestructAt: (groupData.selfDestructAt as Timestamp).toDate().toISOString(),
         createdAt: (groupData.createdAt as Timestamp).toDate().toISOString(),
         inviteCode: groupData.inviteCode,
+        // Keep memberUserIds here for the other effect to use
+        memberUserIds: groupData.memberUserIds,
       });
-
-      // Fetch profiles for all members
-      try {
-        const users = await getUsersFromIds(memberIds);
-        const newMembersMap: { [key: string]: AppUser } = {};
-        users.forEach(u => { newMembersMap[u.uid] = u; });
-        setMembersInfo(newMembersMap);
-      } catch (error) {
-        console.error("Error fetching member profiles:", error);
-      }
-
-      // Set up messages listener only ONCE
-      if (!unsubscribeMessages) {
-        const messagesColRef = collection(db, "groups", groupId, "messages");
-        const q = query(messagesColRef, orderBy("timestamp", "asc"));
-        
-        unsubscribeMessages = onSnapshot(q, (messagesSnap) => {
-          const newMessagesData: ChatMessageData[] = messagesSnap.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              senderId: data.senderId,
-              text: data.text,
-              mediaUrl: data.mediaUrl,
-              mediaType: data.mediaType,
-              timestamp: (data.timestamp as Timestamp)?.toDate()?.toISOString() || new Date().toISOString(),
-              reactions: data.reactions || {},
-            };
-          });
-          
-          setMessages(newMessagesData);
-          setIsLoading(false);
-        }, (error) => {
-          console.error("Error fetching messages:", error);
-          setIsLoading(false);
-        });
-      }
     }, (error) => {
       console.error("Error fetching group details:", error);
       setGroupInfo(null);
       setIsLoading(false);
     });
 
-    // Cleanup function for both listeners
-    return () => {
-      unsubscribeGroup();
-      if (unsubscribeMessages) {
-        unsubscribeMessages();
-      }
-    };
+    return () => unsubscribeGroup();
   }, [groupId, user?.uid]);
+
+  // Effect 2: Fetch member profiles ONLY when the list of member IDs changes
+  useEffect(() => {
+    if (memberIds.length === 0) return;
+    
+    // Determine which members we haven't fetched yet
+    const newMemberIds = memberIds.filter((id: string) => !membersInfo[id]);
+
+    if (newMemberIds.length > 0) {
+        getUsersFromIds(newMemberIds).then(newUsers => {
+            setMembersInfo(prev => {
+                const updatedMembers = { ...prev };
+                newUsers.forEach(u => {
+                    updatedMembers[u.uid] = u;
+                });
+                return updatedMembers;
+            });
+        }).catch(error => console.error("Error fetching member profiles:", error));
+    }
+  }, [memberIds, membersInfo]);
+
+
+  // Effect 3: Listen for messages
+  useEffect(() => {
+    if (!groupId) return;
+
+    const messagesColRef = collection(db, "groups", groupId, "messages");
+    const q = query(messagesColRef, orderBy("timestamp", "asc"));
+    
+    const unsubscribeMessages = onSnapshot(q, (messagesSnap) => {
+      const newMessagesData: ChatMessageData[] = messagesSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          senderId: data.senderId,
+          text: data.text,
+          mediaUrl: data.mediaUrl,
+          mediaType: data.mediaType,
+          timestamp: (data.timestamp as Timestamp)?.toDate()?.toISOString() || new Date().toISOString(),
+          reactions: data.reactions || {},
+        };
+      });
+      
+      setMessages(newMessagesData);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching messages:", error);
+      toast({ title: "Error", description: "Could not load messages.", variant: "destructive"});
+      setIsLoading(false);
+    });
+
+    return () => unsubscribeMessages();
+  }, [groupId, toast]);
 
   const handleSendMessage = async (text: string) => {
     if (!user || !groupId || !text.trim()) return;
@@ -145,10 +150,9 @@ export default function GroupChatPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !groupInfo) {
     return (
       <div className="flex flex-col h-full">
-        {/* Skeleton for Header */}
         <div className="bg-card border-b p-2 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -162,7 +166,6 @@ export default function GroupChatPage() {
           </div>
           <Skeleton className="h-1.5 mt-2 w-full" />
         </div>
-        {/* Skeleton for Message List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
            {[...Array(3)].map((_, i) => (
              <div key={i} className={`flex items-end gap-2 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
@@ -172,7 +175,6 @@ export default function GroupChatPage() {
              </div>
            ))}
         </div>
-        {/* Skeleton for Message Input */}
         <div className="bg-card border-t p-4">
           <div className="flex items-end gap-2">
             <Skeleton className="h-10 w-10 rounded-full" />
@@ -184,14 +186,14 @@ export default function GroupChatPage() {
     );
   }
 
-  if (!groupInfo) {
+  if (!groupInfo && !isLoading) {
     return <div className="flex items-center justify-center h-full text-xl text-destructive">Group not found, it may have expired, or you don't have access.</div>;
   }
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <GroupHeaderChat group={groupInfo} />
-      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={false} groupInfo={groupInfo}/>
+      {groupInfo && <GroupHeaderChat group={groupInfo} />}
+      <MessageList groupId={groupId} messages={messages} membersInfo={membersInfo} isLoading={isLoading} groupInfo={groupInfo}/>
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </div>
   );
