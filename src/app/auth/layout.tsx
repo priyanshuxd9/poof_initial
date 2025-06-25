@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Sun, Moon } from 'lucide-react';
+import { SplineBackground } from '@/components/auth/spline-background';
 
 export default function AuthLayout({
   children,
@@ -29,9 +30,10 @@ export default function AuthLayout({
     : theme;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 relative">
-       {isMounted && (
-        <div className="absolute top-4 right-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-4">
+      <SplineBackground className="opacity-70 dark:opacity-50" />
+      {isMounted && (
+        <div className="absolute right-4 top-4 z-20">
           <Button
             variant="ghost"
             size="icon"
@@ -42,11 +44,11 @@ export default function AuthLayout({
           </Button>
         </div>
       )}
-      <div className="w-full max-w-md space-y-8">
+      <div className="relative z-10 w-full max-w-md space-y-8">
         <div className="flex justify-center">
           <Logo iconSize={40} textSize="text-4xl" />
         </div>
-        <div className="bg-card p-8 rounded-xl shadow-2xl dark:shadow-white-form-shadow">
+        <div className="rounded-xl border border-border/20 bg-card/80 p-8 shadow-2xl backdrop-blur-sm dark:bg-card/70 dark:shadow-white-form-shadow">
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
