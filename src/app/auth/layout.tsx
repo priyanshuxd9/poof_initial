@@ -47,7 +47,7 @@ export default function AuthLayout({
         <div className="flex justify-center">
           <Logo />
         </div>
-        <div className="rounded-xl bg-card p-8 shadow-glow-primary">
+        <div className="rounded-lg bg-card p-8 shadow-glow-primary">
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
