@@ -1,4 +1,3 @@
-
 'use client';
 
 import Spline from '@splinetool/react-spline';
@@ -8,7 +7,7 @@ export function SplineBackground({ className }: { className?: string }) {
   return (
     <div className={cn("absolute inset-0 z-0", className)}>
       <Spline
-        scene="https://prod.spline.design/VvN4-zC13eDWiWf5/scene.splinecode"
+        scene="https://prod.spline.design/SSBqB6tS3q4S2nDf/scene.splinecode"
         className='pointer-events-none'
       />
     </div>
