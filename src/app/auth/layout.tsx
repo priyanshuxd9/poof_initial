@@ -28,16 +28,15 @@ export default function AuthLayout({
     : theme;
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center p-4 animated-gradient-bg">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
       
       {isMounted && (
-        <div className="absolute right-4 top-4 z-10">
+        <div className="absolute right-4 top-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
             aria-label="Toggle theme"
-            className="text-white hover:bg-white/10 hover:text-white"
           >
             {effectiveTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
@@ -46,12 +45,12 @@ export default function AuthLayout({
 
       <div className="w-full max-w-md space-y-8">
         <div className="flex justify-center">
-          <Logo iconSize={40} textSize="text-4xl" className="[&>h1]:text-white" />
+          <Logo />
         </div>
-        <div className="bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl p-8">
+        <div className="bg-card rounded-xl p-8 shadow-lg">
           {children}
         </div>
-         <p className="text-center text-sm text-gray-300">
+         <p className="text-center text-sm text-muted-foreground">
           Poof: Create group chats that... well, <em>poof</em>! Gone like magic.
         </p>
       </div>

@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Eye, EyeOff, Loader2, User, Lock } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 const signInSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -64,10 +64,6 @@ export function AuthForm() {
     },
   });
 
-  useEffect(() => {
-    form.reset();
-  }, [mode, form]);
-
   const onSubmit = async (values: FormValues) => {
     startTransition(async () => {
       try {
@@ -98,8 +94,8 @@ export function AuthForm() {
 
   const getTitle = () => {
     switch (mode) {
-        case "signIn": return "Sign In";
-        case "signUp": return "Create Account";
+        case "signIn": return "Sign In to Poof";
+        case "signUp": return "Create your Account";
         case "resetPassword": return "Reset Password";
     }
   }
@@ -112,117 +108,93 @@ export function AuthForm() {
     }
   }
 
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <h2 className="text-2xl font-bold text-center text-white">
+        <h2 className="text-2xl font-bold text-center text-foreground">
           {getTitle()}
         </h2>
 
-        <div className="space-y-4">
+        {mode === "signUp" && (
           <FormField
             control={form.control}
-            name="email"
+            name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="sr-only">Email</FormLabel>
+                <FormLabel>Username</FormLabel>
+                <FormControl>
+                  <Input placeholder="poofmaster" {...field} disabled={isPending} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input placeholder="you@example.com" {...field} disabled={isPending}/>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {mode !== 'resetPassword' && (
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex justify-between items-center">
+                    <FormLabel>Password</FormLabel>
+                    {mode === 'signIn' && (
+                        <Button
+                            variant="link"
+                            type="button"
+                            onClick={() => setMode("resetPassword")}
+                            className="p-0 h-auto text-sm"
+                            disabled={isPending}
+                        >
+                            Forgot Password?
+                        </Button>
+                    )}
+                </div>
                 <FormControl>
                   <div className="relative">
-                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-300" />
                     <Input 
-                      placeholder="Email" 
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••" 
                       {...field} 
                       disabled={isPending}
-                      className="bg-white/10 border-white/20 placeholder:text-gray-300 text-white pl-10 focus:ring-white/50"
                     />
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isPending}
+                    >
+                      {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                    </Button>
                   </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          
-          {mode === "signUp" && (
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="sr-only">Username</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-300" />
-                      <Input 
-                        placeholder="Username" 
-                        {...field} 
-                        disabled={isPending} 
-                        className="bg-white/10 border-white/20 placeholder:text-gray-300 text-white pl-10 focus:ring-white/50"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-
-          {mode !== 'resetPassword' && (
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="sr-only">Password</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-300" />
-                      <Input 
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Password" 
-                        {...field} 
-                        disabled={isPending}
-                        className="bg-white/10 border-white/20 placeholder:text-gray-300 text-white pl-10 focus:ring-white/50"
-                      />
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-gray-300 hover:bg-transparent hover:text-white"
-                        onClick={() => setShowPassword(!showPassword)}
-                        disabled={isPending}
-                      >
-                        {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
-                      </Button>
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-        </div>
-
-        {mode === 'signIn' && (
-            <div className="text-right">
-                 <Button
-                    variant="link"
-                    type="button"
-                    onClick={() => setMode("resetPassword")}
-                    className="p-0 h-auto text-sm text-gray-300 hover:text-white"
-                    disabled={isPending}
-                >
-                    Forgot Password?
-                </Button>
-            </div>
         )}
 
-        <Button type="submit" className="w-full bg-white/20 border border-white/20 text-white hover:bg-white/30" disabled={isPending}>
+        <Button type="submit" className="w-full" disabled={isPending}>
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {getButtonText()}
         </Button>
 
-        <p className="text-sm text-center text-gray-300">
+        <p className="text-sm text-center text-muted-foreground">
           {mode === 'signIn' && "Don't have an account?"}
           {mode === 'signUp' && "Already have an account?"}
           {mode === 'resetPassword' && "Remember your password?"}{" "}
@@ -230,7 +202,7 @@ export function AuthForm() {
             variant="link"
             type="button"
             onClick={() => setMode(mode === 'signUp' || mode === 'resetPassword' ? "signIn" : "signUp")}
-            className="p-0 h-auto font-semibold text-white hover:underline"
+            className="p-0 h-auto font-semibold"
             disabled={isPending}
           >
             {mode === 'signUp' || mode === 'resetPassword' ? "Sign In" : "Sign Up"}
