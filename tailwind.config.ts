@@ -2,7 +2,7 @@
 import type { Config } from "tailwindcss";
 import { fontFamily } from "tailwindcss/defaultTheme";
 
-export default {
+const config: Config = {
     darkMode: ["class"],
     content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -72,7 +72,8 @@ export default {
   			sm: 'calc(var(--radius) - 4px)'
   		},
       boxShadow: {
-        'white-form-shadow': '0 6px 18px rgba(255, 255, 255, 0.22)', // New white shadow for dark mode forms
+        'white-form-shadow': '0 6px 18px rgba(255, 255, 255, 0.22)',
+        'glass-glow': '0 0 25px 0px hsl(var(--primary) / 0.3)',
       },
   		keyframes: {
   			'accordion-down': {
@@ -99,4 +100,6 @@ export default {
   	}
   },
   plugins: [require("tailwindcss-animate")],
-} satisfies Config;
+};
+
+export default config;

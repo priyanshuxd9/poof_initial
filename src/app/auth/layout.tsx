@@ -47,7 +47,7 @@ export default function AuthLayout({
         <div className="flex justify-center">
           <Logo iconSize={40} textSize="text-4xl" />
         </div>
-        <div className="rounded-xl border border-border/50 bg-card/70 backdrop-blur-sm p-8 shadow-lg dark:shadow-white-form-shadow">
+        <div className="rounded-2xl border border-primary/20 bg-card/30 backdrop-blur-lg p-8 shadow-glass-glow">
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
