@@ -71,6 +71,9 @@ const config: Config = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+      boxShadow: {
+        'glow-primary': '0 4px 14px 0 rgba(0, 0, 0, 0.1), 0 0 20px 5px hsla(var(--primary), 0.25)',
+      },
   		keyframes: {
   			'accordion-down': {
   				from: {

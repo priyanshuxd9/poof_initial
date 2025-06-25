@@ -28,7 +28,7 @@ export default function AuthLayout({
     : theme;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-muted to-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       
       {isMounted && (
         <div className="absolute right-4 top-4">
@@ -47,7 +47,7 @@ export default function AuthLayout({
         <div className="flex justify-center">
           <Logo />
         </div>
-        <div className="rounded-xl border border-white/10 bg-card/30 p-8 shadow-2xl shadow-primary/10 backdrop-blur-md">
+        <div className="rounded-xl bg-card p-8 shadow-glow-primary">
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">
