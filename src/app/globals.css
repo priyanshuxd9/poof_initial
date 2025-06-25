@@ -21,7 +21,7 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 198 56% 80%; /* Lighter shade of primary for borders */
-    --input: 0 0% 97%; /* Light grey for input backgrounds, distinct from main bg */
+    --input: 198 56% 80%; /* Lighter shade of primary for input borders */
     --ring: 198 56% 59%; /* Primary color for rings */
     --chart-1: 198 56% 59%;
     --chart-2: 201 81% 21%;
@@ -59,7 +59,7 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 198 56% 40%;
-    --input: 201 81% 20%;
+    --input: 198 56% 40%;
     --ring: 198 56% 69%;
     --chart-1: 198 56% 59%;
     --chart-2: 198 66% 69%;

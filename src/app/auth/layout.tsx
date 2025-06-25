@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Logo } from '@/components/shared/logo';
@@ -47,7 +46,7 @@ export default function AuthLayout({
         <div className="flex justify-center">
           <Logo iconSize={40} textSize="text-4xl" />
         </div>
-        <div className="rounded-2xl border border-primary/20 bg-card/30 backdrop-blur-lg p-8 shadow-glass-glow">
+        <div className="rounded-2xl border bg-card p-8 shadow-lg">
           {children}
         </div>
          <p className="text-center text-sm text-muted-foreground">

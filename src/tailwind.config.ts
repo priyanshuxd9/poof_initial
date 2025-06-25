@@ -71,10 +71,6 @@ const config: Config = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
-      boxShadow: {
-        'white-form-shadow': '0 6px 18px rgba(255, 255, 255, 0.22)',
-        'glass-glow': '0 0 25px 0px hsl(var(--primary) / 0.3)',
-      },
   		keyframes: {
   			'accordion-down': {
   				from: {
