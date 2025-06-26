@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
-import { db, getUsersFromIds, type AppUser, cleanupExpiredGroup } from '@/lib/firebase';
+import { db, getUsersFromIds, type AppUser } from '@/lib/firebase';
 import { GroupChatHeader } from '@/components/chat/group-header-chat';
 import { MessageList } from '@/components/chat/message-list';
 import { MessageInput } from '@/components/chat/message-input';
@@ -23,7 +23,6 @@ export interface Group {
   selfDestructAt: Timestamp;
   createdAt: Timestamp;
   inviteCode: string;
-  isCleaned?: boolean;
 }
 
 export default function GroupChatPage() {
@@ -35,7 +34,6 @@ export default function GroupChatPage() {
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isCleaning, setIsCleaning] = useState(false);
 
   useEffect(() => {
     if (authLoading || !user || !groupId) return;
@@ -52,28 +50,16 @@ export default function GroupChatPage() {
             router.replace('/dashboard');
             return;
           }
+          
           const groupData = { id: docSnap.id, ...data } as Group;
 
-          // Check if group is expired and needs cleanup
-          if (groupData.selfDestructAt.toDate() < new Date() && !groupData.isCleaned) {
-            setIsCleaning(true);
-            try {
-              await cleanupExpiredGroup(groupId);
-              toast({
-                title: "Group Archived",
-                description: `"${groupData.name}" has been archived and its messages have been deleted.`
-              });
-              router.replace('/archive');
-            } catch (error) {
-              console.error("Failed to clean up group:", error);
-              toast({
-                title: "Cleanup Failed",
-                description: "Could not delete the group's messages. Please try again later.",
-                variant: "destructive"
-              });
-              // Proceed to load chat, or redirect to dashboard as a fallback
-              router.replace('/dashboard');
-            }
+          // Check if group is expired
+          if (groupData.selfDestructAt.toDate() < new Date()) {
+            toast({
+              title: "Group Archived",
+              description: `"${groupData.name}" has been archived and its messages have been deleted.`
+            });
+            router.replace('/archive');
             return; // Stop further processing
           }
           
@@ -100,18 +86,6 @@ export default function GroupChatPage() {
 
     return () => unsubscribe();
   }, [groupId, user, authLoading, router, members.length, toast]);
-
-  if (isCleaning) {
-    return (
-      <div className="flex flex-col h-full items-center justify-center gap-4 bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <div className="text-center">
-            <h2 className="text-xl font-semibold">Archiving Group...</h2>
-            <p className="text-muted-foreground">The messages for this group are being deleted.</p>
-        </div>
-      </div>
-    );
-  }
 
   if (loading || authLoading) {
     return (

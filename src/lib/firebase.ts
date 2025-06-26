@@ -164,31 +164,3 @@ export const updateGroupTimer = async (groupId: string, newSelfDestructDate: Dat
     selfDestructAt: Timestamp.fromDate(newSelfDestructDate),
   });
 };
-
-/**
- * Deletes all messages in a group's subcollection and marks the group as cleaned.
- * This is intended to be called for expired groups.
- * @param groupId The ID of the group to clean up.
- */
-export const cleanupExpiredGroup = async (groupId: string): Promise<void> => {
-  ensureFirebaseInitialized();
-  const messagesRef = collection(db, 'groups', groupId, 'messages');
-  const groupDocRef = doc(db, 'groups', groupId);
-
-  const batch = writeBatch(db);
-
-  // Get all messages to delete them in a batch
-  const messagesSnapshot = await getDocs(messagesRef);
-  messagesSnapshot.docs.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
-  
-  // Mark the group as cleaned and remove the invite code so it can't be used again.
-  // We keep memberUserIds so the archive page still works for all members.
-  batch.update(groupDocRef, {
-    isCleaned: true,
-    inviteCode: null,
-  });
-
-  await batch.commit();
-};

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -75,7 +76,7 @@ export default function ArchivePage() {
         setArchivedGroups(fetchedGroups);
       } catch (err) {
         console.error("Error fetching archived groups:", err);
-        setError("Failed to load archived groups. Please try again later.");
+        setError("Failed to load archived groups. You may need to create a Firestore index for this query.");
       } finally {
         setIsLoading(false);
       }

@@ -129,55 +129,38 @@ export default function DashboardPage() {
       try {
         const groupsRef = collection(db, "groups");
         // Query for ALL groups the user is a member of.
-        const q = query(groupsRef, where("memberUserIds", "array-contains", user.uid));
+        const q = query(
+          groupsRef, 
+          where("memberUserIds", "array-contains", user.uid),
+          where("selfDestructAt", ">", new Date())
+        );
         
         const querySnapshot = await getDocs(q);
         
         const activeGroups: Group[] = [];
-        const groupsToClean: string[] = [];
-
+        
         querySnapshot.docs.forEach(doc => {
           const data = doc.data();
           const selfDestructDate = (data.selfDestructAt as Timestamp).toDate();
-
-          if (selfDestructDate < new Date() && !data.isCleaned) {
-            // Group is expired and needs cleanup.
-            groupsToClean.push(doc.id);
-          } else if (selfDestructDate >= new Date()) {
-            // Group is active.
-            activeGroups.push({
-              id: doc.id,
-              name: data.name,
-              description: data.description,
-              memberCount: data.memberUserIds?.length || 0,
-              lastActivity: data.lastActivity ? (data.lastActivity as Timestamp).toDate().toISOString() : new Date().toISOString(),
-              imageUrl: data.imageUrl,
-              selfDestructAt: selfDestructDate.toISOString(),
-              createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-            });
-          }
+          
+          activeGroups.push({
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            memberCount: data.memberUserIds?.length || 0,
+            lastActivity: data.lastActivity ? (data.lastActivity as Timestamp).toDate().toISOString() : new Date().toISOString(),
+            imageUrl: data.imageUrl,
+            selfDestructAt: selfDestructDate.toISOString(),
+            createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+          });
         });
-
-        // Trigger cleanup for expired groups in the background.
-        if (groupsToClean.length > 0) {
-          console.log(`Cleaning up ${groupsToClean.length} expired groups...`);
-          const cleanupPromises = groupsToClean.map(groupId => cleanupExpiredGroup(groupId));
-          // We don't need to await this, let it run in the background
-          Promise.all(cleanupPromises)
-            .then(() => {
-              console.log("Cleanup complete for expired groups.");
-            })
-            .catch(error => {
-              console.error("Error during background group cleanup:", error);
-            });
-        }
         
-        // Sort active groups and update the state to render the dashboard.
+        // Sort active groups by expiration and update the state to render the dashboard.
         activeGroups.sort((a, b) => new Date(a.selfDestructAt).getTime() - new Date(b.selfDestructAt).getTime());
         setGroups(activeGroups);
 
       } catch (error) {
-        console.error("Error fetching and processing groups:", error);
+        console.error("Error fetching active groups:", error);
       } finally {
         setIsLoadingGroups(false);
       }
@@ -228,7 +211,7 @@ export default function DashboardPage() {
           <AlertTitle className="font-semibold">No Active Groups!</AlertTitle>
           <AlertDescription>
             You aren't part of any active Poof groups. Why not create one or join using an invite code?
-            Expired groups won't show up here.
+            Expired groups can be found in the past groups archive.
           </AlertDescription>
         </Alert>
       ) : (
