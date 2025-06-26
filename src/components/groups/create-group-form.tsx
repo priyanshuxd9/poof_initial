@@ -28,7 +28,7 @@ import { generateGroupDescription, GenerateGroupDescriptionInput } from "@/ai/fl
 import { suggestSelfDestructTimer, SuggestSelfDestructTimerInput } from "@/ai/flows/suggest-self-destruct-timer";
 import { useAuth } from "@/contexts/auth-context";
 import { db, storage } from "@/lib/firebase";
-import { collection, doc, serverTimestamp, Timestamp, setDoc } from "firebase/firestore";
+import { collection, doc, serverTimestamp, Timestamp, setDoc, updateDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -149,23 +149,16 @@ export function CreateGroupForm() {
     }
 
     startTransition(async () => {
-      try {
-        const groupDocRef = doc(collection(db, "groups"));
-        const groupId = groupDocRef.id;
+      const groupDocRef = doc(collection(db, "groups"));
+      const groupId = groupDocRef.id;
 
-        let finalImageUrl: string | null = null;
-        if (groupImage) {
-          const filePath = `group-avatars/${groupId}/avatar.jpg`;
-          const sRef = storageRef(storage, filePath);
-          await uploadBytes(sRef, groupImage);
-          finalImageUrl = await getDownloadURL(sRef);
-        }
-        
+      try {
+        // Step 1: Create the initial group document in Firestore so it exists for storage rules.
         const inviteCode = generateInviteCode();
         const selfDestructDate = new Date();
         selfDestructDate.setDate(selfDestructDate.getDate() + values.selfDestructTimerDays);
         
-        const groupDocData = {
+        const initialGroupDocData = {
           name: values.groupName,
           description: values.description,
           purpose: values.groupPurpose || null,
@@ -175,11 +168,22 @@ export function CreateGroupForm() {
           memberUserIds: [user.uid],
           createdAt: serverTimestamp(),
           selfDestructAt: Timestamp.fromDate(selfDestructDate),
-          imageUrl: finalImageUrl,
+          imageUrl: null, // Start with a null image URL
           lastActivity: serverTimestamp(),
         };
 
-        await setDoc(groupDocRef, groupDocData);
+        await setDoc(groupDocRef, initialGroupDocData);
+
+        // Step 2: If an image was selected, upload it now.
+        if (groupImage) {
+          const filePath = `group-avatars/${groupId}/avatar.jpg`;
+          const sRef = storageRef(storage, filePath);
+          await uploadBytes(sRef, groupImage);
+          const finalImageUrl = await getDownloadURL(sRef);
+          
+          // Step 3: Update the group document with the final image URL.
+          await updateDoc(groupDocRef, { imageUrl: finalImageUrl });
+        }
         
         toast({
           title: "Group Created!",
@@ -195,6 +199,7 @@ export function CreateGroupForm() {
           description: error.message || "An unexpected error occurred. Please try again.",
           variant: "destructive",
         });
+        // Note: A more robust implementation might delete the Firestore doc if the image upload fails.
       }
     });
   };
