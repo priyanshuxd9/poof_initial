@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import NextImage from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,7 +16,7 @@ import { cn, getInitials, formatDetailedTimestamp } from "@/lib/utils";
 import type { AppUser } from "@/lib/firebase";
 import { Timestamp, doc, writeBatch, arrayUnion, arrayRemove } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
-import { SmilePlus } from "lucide-react";
+import { SmilePlus, Download } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
@@ -23,10 +24,13 @@ import { useParams } from "next/navigation";
 
 export interface Message {
   id: string;
-  text: string;
+  text?: string;
   senderId: string;
   createdAt: Timestamp;
   reactions?: { [key: string]: string[] }; // e.g., { '👍': ['uid1', 'uid2'] }
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  fileName?: string;
 }
 
 interface ChatMessageProps {
@@ -97,6 +101,45 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     ([, uids]) => uids && uids.length > 0
   );
 
+  const MessageContent = () => (
+    <>
+        {message.mediaUrl && (
+            <div className="relative mb-2 group/media">
+                {message.mediaType === 'image' ? (
+                     <NextImage 
+                        src={message.mediaUrl}
+                        alt={message.fileName || "Shared image"}
+                        width={300}
+                        height={300}
+                        className="rounded-lg object-cover max-h-[400px] w-auto"
+                        unoptimized // Required for external storage URLs in Next.js
+                     />
+                ) : (
+                    <video
+                        src={message.mediaUrl}
+                        controls
+                        className="rounded-lg max-h-[400px] w-full"
+                    />
+                )}
+                <a href={message.mediaUrl} download={message.fileName} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white">
+                        <Download className="h-4 w-4" />
+                    </Button>
+                </a>
+            </div>
+        )}
+        {message.text && (
+            <p className="whitespace-pre-wrap break-words text-left">{message.text}</p>
+        )}
+        <p className={cn(
+            "text-xs mt-1 self-start",
+            isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
+        )}>
+            {formattedTime}
+        </p>
+    </>
+  );
+
   return (
     <div
       className={cn(
@@ -117,19 +160,15 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
             "relative flex flex-col rounded-xl px-3 py-2",
             isCurrentUser
               ? "bg-primary text-primary-foreground rounded-br-none"
-              : "bg-muted text-foreground rounded-bl-none"
+              : "bg-muted text-foreground rounded-bl-none",
+            !message.text && message.mediaUrl ? "p-1 bg-transparent" : "" // Special case for media-only messages
           )}
         >
           {!isCurrentUser && (
             <p className="text-xs font-semibold mb-1 text-primary">{sender.username}</p>
           )}
-          <p className="whitespace-pre-wrap break-words text-left">{message.text}</p>
-          <p className={cn(
-            "text-xs mt-1 self-start",
-            isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
-          )}>
-            {formattedTime}
-          </p>
+          
+          <MessageContent />
 
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
               <PopoverTrigger asChild>

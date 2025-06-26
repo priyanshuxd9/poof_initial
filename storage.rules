@@ -3,16 +3,35 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // User avatars are public, but only the user can write to their own path.
-    match /user-avatars/{userId}/{allPaths=**} {
-      allow read: if true;
+    
+    // Allow users to read their own profile picture and group avatars
+    match /user-avatars/{userId}/{fileName} {
+      allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
+    
+    match /group-avatars/{groupId}/{fileName} {
+      allow read: if request.auth != null;
+      // Only the group owner can update the group avatar.
+      allow write: if request.auth != null 
+                   && exists(/databases/$(database)/documents/groups/$(groupId))
+                   && request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId;
+    }
 
-    // Group icons are public, but only the group owner can write to the path.
-    match /group-avatars/{groupId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+    // Rules for media shared in groups
+    match /group-media/{groupId}/{mediaId} {
+        // A user can read media if they are a member of the group.
+        allow read: if request.auth != null
+                    && exists(/databases/$(database)/documents/groups/$(groupId))
+                    && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+
+        // A user can write (upload) media if they are a member of the group,
+        // the file is an image or video, and it's under 30MB.
+        allow write: if request.auth != null
+                     && exists(/databases/$(database)/documents/groups/$(groupId))
+                     && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds
+                     && request.resource.size < 30 * 1024 * 1024 // 30MB limit
+                     && request.resource.contentType.matches('image/.*|video/.*');
     }
   }
 }
