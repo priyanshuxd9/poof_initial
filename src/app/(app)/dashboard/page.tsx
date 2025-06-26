@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitials, formatTimeAgo } from "@/lib/utils";
+import { getInitials } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
 import { db } from "@/lib/firebase";
@@ -82,32 +82,26 @@ function GroupListItem({ group }: GroupListItemProps) {
     return () => clearInterval(intervalId);
   }, [group.selfDestructAt, group.createdAt]);
 
-  const lastActivityDisplay = group.lastActivity 
-    ? formatTimeAgo(group.lastActivity)
-    : group.description.substring(0, 45) + (group.description.length > 45 ? "..." : "");
-
   return (
-    <Link href={`/groups/${group.id}`} className="block hover:bg-muted/30 transition-colors rounded-lg">
-      <div className="flex items-center p-3 sm:p-4 space-x-3 sm:space-x-4 shadow-[0_1px_0_hsl(var(--border)),_0_2px_3px_-2px_hsl(var(--foreground)/0.1)] last:shadow-none">
-        <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0">
-          <AvatarImage src={group.imageUrl || `https://placehold.co/64x64.png`} alt={group.name} data-ai-hint="group avatar" className="object-cover" />
-          <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-            {getInitials(group.name)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <p className="text-base sm:text-lg font-semibold text-foreground truncate">{group.name}</p>
-          <p className="text-xs sm:text-sm text-muted-foreground truncate">{lastActivityDisplay}</p>
+    <Link href={`/groups/${group.id}`} className="block bg-card text-card-foreground p-4 rounded-lg shadow-md hover:bg-card/95 transition-colors">
+      <div className="flex items-center w-full">
+        {/* Left: Group Name */}
+        <div className="flex-grow">
+          <p className="text-base font-semibold truncate">{group.name}</p>
         </div>
-        <div className="flex flex-col items-end text-right ml-2 flex-shrink-0 w-20 sm:w-24">
-          <span className={`text-xs sm:text-sm font-medium ${isPoofingSoon && timeRemainingText !== "Poofed!" ? 'text-destructive animate-pulse' : 'text-muted-foreground'}`}>
-            {timeRemainingText}
-          </span>
-          {isPoofingSoon && timeRemainingText !== "Poofed!" && (
-            <span className="text-xs text-destructive items-center flex gap-1">
-              <Clock className="h-3 w-3"/> Poofing!
+
+        {/* Right side containing Avatar and Time */}
+        <div className="flex items-center gap-4 flex-shrink-0">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={group.imageUrl || `https://placehold.co/64x64.png`} alt={group.name} data-ai-hint="group avatar" className="object-cover" />
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                {getInitials(group.name)}
+              </AvatarFallback>
+            </Avatar>
+          
+            <span className={`w-20 text-right text-sm font-medium ${isPoofingSoon && timeRemainingText !== "Poofed!" ? 'text-destructive animate-pulse' : ''}`}>
+              {timeRemainingText}
             </span>
-           )}
         </div>
       </div>
     </Link>
@@ -191,10 +185,10 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one using the '+' below.</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground mb-1">Welcome, {user?.username || user?.email}!</h1>
+          <p className="text-xs text-muted-foreground">Manage your Poof groups or start a new one using the '+' below.</p>
         </div>
       </div>
 
@@ -211,11 +205,11 @@ export default function DashboardPage() {
         </Alert>
       ) : (
         <>
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <ListChecks className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Your Active Groups</h2>
+            <h2 className="text-lg font-semibold text-foreground">Your Active Groups</h2>
           </div>
-          <div className="bg-card rounded-xl shadow-lg border">
+          <div className="space-y-3">
             {groups.map((group) => (
               <GroupListItem key={group.id} group={group} />
             ))}
