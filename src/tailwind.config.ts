@@ -72,7 +72,7 @@ const config: Config = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
       boxShadow: {
-        'glow-primary': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 20px 30px -10px hsl(var(--primary) / 0.25)',
+        'glow-primary': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), 0px 10px 25px -10px rgba(255, 255, 255, 0.9)',
       },
   		keyframes: {
   			'accordion-down': {
