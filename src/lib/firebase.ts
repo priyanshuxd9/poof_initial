@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type User as FirebaseUser, updateProfile, deleteUser } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, updateDoc, deleteDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Function to get the initialized Firebase app
@@ -150,4 +150,32 @@ export const getUsersFromIds = async (userIds: string[]): Promise<AppUser[]> => 
     console.error("Error fetching users from IDs:", error);
     return [];
   }
+};
+
+/**
+ * Deletes all messages in a group's subcollection and marks the group as cleaned.
+ * This is intended to be called for expired groups.
+ * @param groupId The ID of the group to clean up.
+ */
+export const cleanupExpiredGroup = async (groupId: string): Promise<void> => {
+  ensureFirebaseInitialized();
+  const messagesRef = collection(db, 'groups', groupId, 'messages');
+  const groupDocRef = doc(db, 'groups', groupId);
+
+  const batch = writeBatch(db);
+
+  // Get all messages to delete them in a batch
+  const messagesSnapshot = await getDocs(messagesRef);
+  messagesSnapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  
+  // Mark the group as cleaned and remove the invite code so it can't be used again.
+  // We keep memberUserIds so the archive page still works for all members.
+  batch.update(groupDocRef, {
+    isCleaned: true,
+    inviteCode: null,
+  });
+
+  await batch.commit();
 };

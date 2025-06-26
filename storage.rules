@@ -1,36 +1,18 @@
 
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // User profile pictures
-    // Allow users to read anyone's avatar.
-    // Allow users to write ONLY to their own avatar path.
-    match /user-avatars/{userId}/avatar.jpg {
-      allow read;
+    // User avatars are public, but only the user can write to their own path.
+    match /user-avatars/{userId}/{allPaths=**} {
+      allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Group icons
-    // Allow any authenticated user to read any group icon.
-    match /group-avatars/{groupId}/avatar.jpg {
-      allow read;
-      // Allow 'write' (which covers both create and update) if:
-      // 1. The file does not exist yet (it's a CREATE operation), and the user is logged in.
-      // OR
-      // 2. The file already exists (it's an UPDATE operation), and the user is the owner of the group.
-      allow write: if request.auth != null && (
-        resource == null ||
-        get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid
-      );
-    }
-
-    // Chat media
-    // Allow read/write only if the user is a member of the group.
-    match /group-media/{groupId}/{messageId}/{fileName} {
-      allow read, write: if request.auth != null &&
-                     exists(/databases/$(database)/documents/groups/$(groupId)) &&
-                     request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    // Group icons are public, but only the group owner can write to the path.
+    match /group-avatars/{groupId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
     }
   }
 }
