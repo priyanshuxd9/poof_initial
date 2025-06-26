@@ -3,7 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, SendHorizonal, Paperclip, X, Video, Smile } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
@@ -11,7 +11,6 @@ import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, writeBatch } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
-import { formatFileSize } from '@/lib/utils';
 import Image from 'next/image';
 import imageCompression from 'browser-image-compression';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -32,7 +31,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
   const [isSending, setIsSending] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -100,7 +99,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
       toast({ title: "Not authenticated", variant: "destructive" });
       return;
     }
-    if (message.trim() === '' && !file) return;
+    if (message === '' && !file) return;
 
     setIsSending(true);
     
@@ -136,7 +135,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
         reactions: {},
       };
       
-      if (message.trim() !== '') {
+      if (message !== '') {
         messagePayload.text = message;
       }
 
@@ -170,6 +169,14 @@ export function MessageInput({ groupId }: MessageInputProps) {
       setIsSending(false);
     }
   };
+  
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
+
 
   return (
     <div className="flex-shrink-0 p-4 border-t bg-card">
@@ -198,7 +205,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="flex items-center gap-2"
+        className="flex items-start gap-2"
       >
         <Button 
             type="button" 
@@ -239,15 +246,18 @@ export function MessageInput({ groupId }: MessageInputProps) {
             accept="image/*,video/*"
             disabled={isSending}
         />
-        <Input
+        <Textarea
           ref={textInputRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={file ? "Add a caption..." : "Type a message..."}
           autoComplete="off"
           disabled={isSending}
+          rows={1}
+          className="flex-1 resize-none max-h-32 py-2.5 px-3"
         />
-        <Button type="submit" size="icon" disabled={isSending || (message.trim() === '' && !file)}>
+        <Button type="submit" size="icon" disabled={isSending || (message === '' && !file)}>
           {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizonal className="h-5 w-5" />}
           <span className="sr-only">Send Message</span>
         </Button>
