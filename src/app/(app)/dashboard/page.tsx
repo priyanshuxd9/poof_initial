@@ -190,8 +190,8 @@ export default function DashboardPage() {
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-base text-muted-foreground">Manage your Poof groups or start a new one.</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
+          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
       </div>
 
@@ -220,11 +220,11 @@ export default function DashboardPage() {
         </>
       )}
 
-      <div className="mt-12 text-center">
-        <Button variant="outline" asChild>
+      <div className="mt-8 flex justify-end">
+        <Button variant="link" asChild className="text-muted-foreground hover:text-primary p-0 h-auto">
             <Link href="/archive">
-                <Archive className="mr-2 h-4 w-4" />
                 View Past Groups
+                <Archive className="ml-1.5 h-4 w-4" />
             </Link>
         </Button>
       </div>
