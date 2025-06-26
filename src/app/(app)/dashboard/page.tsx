@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { PlusCircle, ListChecks, Info, Clock, LogIn } from "lucide-react";
+import { PlusCircle, ListChecks, Info, Clock, LogIn, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,6 +14,13 @@ import { useState, useEffect } from "react";
 import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Group type definition
 export interface Group {
@@ -112,6 +119,7 @@ export default function DashboardPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -164,10 +172,6 @@ export default function DashboardPage() {
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <Skeleton className="h-10 w-48" />
-          <div className="flex space-x-3">
-            <Skeleton className="h-10 w-32" />
-            <Skeleton className="h-10 w-32" />
-          </div>
         </div>
         <div className="space-y-2">
           {[1, 2, 3].map(i => 
@@ -191,18 +195,6 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
           <p className="text-muted-foreground">Manage your Poof groups or start a new one.</p>
-        </div>
-        <div className="flex flex-col sm:flex-row w-full sm:w-auto space-y-2 sm:space-y-0 sm:space-x-2">
-            <Button asChild>
-                <Link href="/groups/create">
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    <span>Create Group</span>
-                </Link>
-            </Button>
-            <Button variant="outline" onClick={() => setIsJoinDialogOpen(true)}>
-                <LogIn className="h-4 w-4 mr-2" />
-                <span>Join Group</span>
-            </Button>
         </div>
       </div>
 
@@ -230,6 +222,27 @@ export default function DashboardPage() {
           </div>
         </>
       )}
+
+      <div className="fixed bottom-8 right-8 z-50">
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button className="h-16 w-16 rounded-full shadow-lg" size="icon">
+                    <Plus className="h-8 w-8" />
+                    <span className="sr-only">Add Group</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="end" className="w-56 mb-2">
+                <DropdownMenuItem onSelect={() => router.push('/groups/create')}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    <span>Create Group</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIsJoinDialogOpen(true)}>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    <span>Join Group</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
