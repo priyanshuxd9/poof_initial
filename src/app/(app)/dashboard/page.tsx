@@ -226,8 +226,8 @@ export default function DashboardPage() {
       <div className="fixed bottom-8 right-8 z-50">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button className="h-16 w-16 rounded-full shadow-lg" size="icon">
-                    <Plus className="h-8 w-8" />
+                <Button className="h-10 w-10 rounded-full shadow-lg" size="icon">
+                    <Plus className="h-5 w-5" />
                     <span className="sr-only">Add Group</span>
                 </Button>
             </DropdownMenuTrigger>
