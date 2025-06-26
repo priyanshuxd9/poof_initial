@@ -2,67 +2,81 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is a member of a group
+    
     function isGroupMember(groupId) {
-      // Ensure the group document exists before trying to access its data
-      return exists(/databases/$(database)/documents/groups/$(groupId)) &&
-             get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/groups/$(groupId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
     }
 
-    // Rules for user profiles
+    function isGroupOwner(groupId) {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/groups/$(groupId)) &&
+             request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId;
+    }
+
+    function isGroupExpired(groupId) {
+      let groupData = get(/databases/$(database)/documents/groups/$(groupId)).data;
+      return groupData.selfDestructAt.toMillis() < request.time.toMillis();
+    }
+    
+    match /usernames/{username} {
+      allow read;
+      allow create, delete: if request.auth != null;
+    }
+
     match /users/{userId} {
-      allow read: if request.auth != null;
+      allow read;
       allow create, update, delete: if request.auth.uid == userId;
     }
 
-    // Rules for unique username tracking
-    match /usernames/{username} {
-      allow read: if request.auth != null;
-      allow create, delete: if request.auth.uid == request.resource.data.uid;
-    }
-
-    // Rules for groups
     match /groups/{groupId} {
-      // Allow reading a group's details only if the user is a member
       allow read: if isGroupMember(groupId);
 
-      // Allow creating a group if the user is the owner and is in the member list
       allow create: if request.auth.uid == request.resource.data.ownerId &&
-                       request.auth.uid in request.resource.data.memberUserIds;
+                     request.auth.uid in request.resource.data.memberUserIds &&
+                     request.resource.data.memberUserIds.size() == 1;
 
-      // Allow updates under specific, controlled conditions
-      allow update: if isGroupMember(groupId) && (
-        ( // Condition 1: A user is joining the group
-          request.resource.data.memberUserIds.size() == resource.data.memberUserIds.size() + 1 &&
-          request.auth.uid in request.resource.data.memberUserIds
-        ) ||
-        ( // Condition 2: The owner is updating the group icon
-          request.auth.uid == resource.data.ownerId &&
-          request.resource.data.imageUrl != resource.data.imageUrl
-        ) ||
-        ( // Condition 3: A member is updating the last activity timestamp
-          request.resource.data.lastActivity > resource.data.lastActivity
-        ) ||
-        ( // Condition 4: A member is triggering the cleanup of an expired group
-          resource.data.selfDestructAt.toMillis() < request.time.toMillis() &&
-          request.resource.data.isCleaned == true &&
-          request.resource.data.inviteCode == null
-        )
-      );
-    }
+      allow update: if 
+          // Case 1: Joining a group (adds member and updates activity).
+          (
+            isGroupMember(groupId) == false &&
+            request.resource.data.memberUserIds == resource.data.memberUserIds.append(request.auth.uid) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasAll(['memberUserIds', 'lastActivity']) &&
+            request.resource.data.diff(resource.data).affectedKeys().size() == 2
+          ) ||
+          // Case 2: Owner updating the group icon.
+          (
+            isGroupOwner(groupId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl'])
+          ) ||
+          // Case 3: Member updating lastActivity (e.g., when sending a message). This is done in a batch with message creation.
+          (
+            isGroupMember(groupId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivity'])
+          ) ||
+          // Case 4: A member triggering a cleanup after expiry.
+          (
+            isGroupMember(groupId) &&
+            isGroupExpired(groupId) &&
+            request.resource.data.isCleaned == true &&
+            request.resource.data.inviteCode == null &&
+            request.resource.data.diff(resource.data).affectedKeys().hasAll(['isCleaned', 'inviteCode']) &&
+            request.resource.data.diff(resource.data).affectedKeys().size() == 2
+          );
 
-    // Rules for messages within a group
-    match /groups/{groupId}/messages/{messageId} {
-      // Members can read and create messages before the group expires
-      allow read, create: if isGroupMember(groupId) && get(/databases/$(database)/documents/groups/$(groupId)).data.selfDestructAt.toMillis() > request.time.toMillis();
+      allow delete: if false;
 
-      // Members can update messages (for reactions) before the group expires
-      allow update: if isGroupMember(groupId) && get(/databases/$(database)/documents/groups/$(groupId)).data.selfDestructAt.toMillis() > request.time.toMillis();
-      
-      // Members can delete messages ONLY as part of the group cleanup process AFTER expiry
-      allow delete: if isGroupMember(groupId) &&
-                       get(/databases/$(database)/documents/groups/$(groupId)).data.selfDestructAt.toMillis() < request.time.toMillis();
+      match /messages/{messageId} {
+        allow list, get: if isGroupMember(groupId);
+        
+        allow create: if isGroupMember(groupId) && request.resource.data.senderId == request.auth.uid;
+
+        allow update: if isGroupMember(groupId) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+        
+        allow delete: if isGroupMember(groupId) && isGroupExpired(groupId);
+      }
     }
   }
 }
