@@ -190,8 +190,8 @@ export default function DashboardPage() {
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-xs text-muted-foreground">Manage your Poof groups or start a new one.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
+          <p className="text-base text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
       </div>
 
