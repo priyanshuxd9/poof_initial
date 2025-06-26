@@ -132,7 +132,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <h2 className="text-2xl font-semibold">{user?.username}</h2>
-              <p className="text-muted-foreground">{user?.email}</p>
+              <p className="text-muted-foreground break-all">{user?.email}</p>
             </div>
           </div>
           
