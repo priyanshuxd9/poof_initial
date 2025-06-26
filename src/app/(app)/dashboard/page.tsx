@@ -192,16 +192,16 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
           <p className="text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
-        <div className="flex w-full sm:w-auto space-x-2">
-            <Button asChild className="flex-1 sm:flex-auto">
+        <div className="flex flex-col sm:flex-row w-full sm:w-auto space-y-2 sm:space-y-0 sm:space-x-2">
+            <Button asChild>
                 <Link href="/groups/create">
-                    <PlusCircle className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Create Group</span>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    <span>Create Group</span>
                 </Link>
             </Button>
-            <Button variant="outline" onClick={() => setIsJoinDialogOpen(true)} className="flex-1 sm:flex-auto">
-                <LogIn className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Join Group</span>
+            <Button variant="outline" onClick={() => setIsJoinDialogOpen(true)}>
+                <LogIn className="h-4 w-4 mr-2" />
+                <span>Join Group</span>
             </Button>
         </div>
       </div>
