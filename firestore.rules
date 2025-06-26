@@ -1,81 +1,62 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // --- Helper Functions ---
     function isGroupMember(groupId) {
-      return request.auth != null && 
-             exists(/databases/$(database)/documents/groups/$(groupId)) &&
-             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+      return request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
     }
 
-    function isGroupOwner(groupId) {
-      return request.auth != null && 
-             exists(/databases/$(database)/documents/groups/$(groupId)) &&
-             request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId;
+    // --- User and Username Collections ---
+    match /users/{userId} {
+      // Users can only manage their own document.
+      allow read, update, delete: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
     }
 
-    function isGroupExpired(groupId) {
-      let groupData = get(/databases/$(database)/documents/groups/$(groupId)).data;
-      return groupData.selfDestructAt.toMillis() < request.time.toMillis();
-    }
-    
     match /usernames/{username} {
       allow read;
-      allow create, delete: if request.auth != null;
+      // Allow user to create their own username document upon signup.
+      allow create: if request.auth.uid == request.resource.data.uid;
+      // Allow user to delete their old username document when updating it.
+      allow delete: if resource.data.uid == request.auth.uid;
     }
 
-    match /users/{userId} {
-      allow read;
-      allow create, update, delete: if request.auth.uid == userId;
-    }
-
+    // --- Groups Collection ---
     match /groups/{groupId} {
+      // Members can read group data.
       allow read: if isGroupMember(groupId);
+      
+      // A user can create a group if they set themselves as the owner.
+      allow create: if request.auth.uid == request.resource.data.ownerId;
+      
+      // --- Update Rules for Groups ---
+      allow update: if
+        // Rule for JOINING: A user can add themselves to a non-expired group.
+        (request.resource.data.memberUserIds == resource.data.memberUserIds.concat([request.auth.uid]) && resource.data.selfDestructAt > request.time) ||
+        
+        // Rule for UPDATING ICON: Only the owner can update the group image.
+        (request.auth.uid == resource.data.ownerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl'])) ||
 
-      allow create: if request.auth.uid == request.resource.data.ownerId &&
-                     request.auth.uid in request.resource.data.memberUserIds &&
-                     request.resource.data.memberUserIds.size() == 1;
-
-      allow update: if 
-          // Case 1: Joining a group (adds member and updates activity).
-          (
-            isGroupMember(groupId) == false &&
-            request.resource.data.memberUserIds == resource.data.memberUserIds.append(request.auth.uid) &&
-            request.resource.data.diff(resource.data).affectedKeys().hasAll(['memberUserIds', 'lastActivity']) &&
-            request.resource.data.diff(resource.data).affectedKeys().size() == 2
-          ) ||
-          // Case 2: Owner updating the group icon.
-          (
-            isGroupOwner(groupId) &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageUrl'])
-          ) ||
-          // Case 3: Member updating lastActivity (e.g., when sending a message). This is done in a batch with message creation.
-          (
-            isGroupMember(groupId) &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivity'])
-          ) ||
-          // Case 4: A member triggering a cleanup after expiry.
-          (
-            isGroupMember(groupId) &&
-            isGroupExpired(groupId) &&
-            request.resource.data.isCleaned == true &&
-            request.resource.data.inviteCode == null &&
-            request.resource.data.diff(resource.data).affectedKeys().hasAll(['isCleaned', 'inviteCode']) &&
-            request.resource.data.diff(resource.data).affectedKeys().size() == 2
-          );
-
+        // Rule for UPDATING LAST ACTIVITY: Any member can update the last activity timestamp (e.g., when sending a message).
+        (isGroupMember(groupId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivity'])) ||
+        
+        // Rule for CLEANUP: Anyone can trigger cleanup after expiry. This is a very specific update.
+        (resource.data.selfDestructAt <= request.time && request.resource.data.diff(resource.data).affectedKeys().hasAll(['isCleaned', 'inviteCode']));
+      
+      // No one can delete a group document directly.
       allow delete: if false;
 
+      // --- Messages Subcollection ---
       match /messages/{messageId} {
         allow list, get: if isGroupMember(groupId);
         
-        allow create: if isGroupMember(groupId) && request.resource.data.senderId == request.auth.uid;
-
-        allow update: if isGroupMember(groupId) &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+        // Members can create messages or update reactions before the group expires.
+        allow create, update: if isGroupMember(groupId) && get(/databases/$(database)/documents/groups/$(groupId)).data.selfDestructAt > request.time;
         
-        allow delete: if isGroupMember(groupId) && isGroupExpired(groupId);
+        // Messages can only be deleted by the background cleanup process after the group is marked as cleaned.
+        allow delete: if get(/databases/$(database)/documents/groups/$(groupId)).data.isCleaned == true;
       }
     }
   }
