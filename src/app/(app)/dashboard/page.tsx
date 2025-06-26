@@ -231,14 +231,20 @@ export default function DashboardPage() {
                     <span className="sr-only">Add Group</span>
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" className="w-56 mb-2">
-                <DropdownMenuItem onSelect={() => router.push('/groups/create')}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    <span>Create Group</span>
+            <DropdownMenuContent side="top" align="end" className="w-auto mb-2 bg-transparent border-none shadow-none p-0">
+                <DropdownMenuItem 
+                  onSelect={() => router.push('/groups/create')} 
+                  className="!bg-primary !text-primary-foreground !rounded-full !shadow-lg hover:!bg-primary/90 focus:!bg-primary/90 focus:!text-primary-foreground !cursor-pointer !px-6 !py-2.5 !justify-center mb-2"
+                >
+                    <PlusCircle className="mr-2 h-5 w-5" />
+                    <span className="font-semibold">Create Group</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setIsJoinDialogOpen(true)}>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    <span>Join Group</span>
+                <DropdownMenuItem 
+                  onSelect={() => setIsJoinDialogOpen(true)}
+                  className="!bg-primary !text-primary-foreground !rounded-full !shadow-lg hover:!bg-primary/90 focus:!bg-primary/90 focus:!text-primary-foreground !cursor-pointer !px-6 !py-2.5 !justify-center"
+                  >
+                    <LogIn className="mr-2 h-5 w-5" />
+                    <span className="font-semibold">Join Group</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
