@@ -88,7 +88,7 @@ function GroupListItem({ group }: GroupListItemProps) {
 
   return (
     <Link href={`/groups/${group.id}`} className="block hover:bg-muted/30 transition-colors rounded-lg">
-      <div className="flex items-center p-3 sm:p-4 space-x-3 sm:space-x-4 border-b last:border-b-0">
+      <div className="flex items-center p-3 sm:p-4 space-x-3 sm:space-x-4 shadow-[0_1px_0_hsl(var(--border)),_0_2px_3px_-2px_hsl(var(--foreground)/0.1)] last:shadow-none">
         <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0">
           <AvatarImage src={group.imageUrl || `https://placehold.co/64x64.png`} alt={group.name} data-ai-hint="group avatar" className="object-cover" />
           <AvatarFallback className="bg-primary text-primary-foreground text-lg">
@@ -193,8 +193,8 @@ export default function DashboardPage() {
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-muted-foreground">Manage your Poof groups or start a new one.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">Welcome, {user?.username || user?.email}!</h1>
+          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one using the '+' below.</p>
         </div>
       </div>
 
@@ -213,9 +213,9 @@ export default function DashboardPage() {
         <>
           <div className="mb-4 flex items-center gap-2">
             <ListChecks className="h-6 w-6 text-primary" />
-            <h2 className="text-2xl font-semibold text-foreground">Your Active Groups</h2>
+            <h2 className="text-xl font-semibold text-foreground">Your Active Groups</h2>
           </div>
-          <div className="bg-card rounded-xl shadow-lg border divide-y divide-border">
+          <div className="bg-card rounded-xl shadow-lg border">
             {groups.map((group) => (
               <GroupListItem key={group.id} group={group} />
             ))}
