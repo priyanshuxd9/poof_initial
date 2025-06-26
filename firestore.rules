@@ -3,16 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ========== HELPER FUNCTIONS ==========
+    // =====================================================================
+    // HELPER FUNCTIONS
+    // =====================================================================
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isMember(groupData) {
-      return request.auth.uid in groupData.memberUserIds;
-    }
-
-    // ========== USERNAMES (for ensuring uniqueness) ==========
+    // =====================================================================
+    // USERNAMES (for ensuring uniqueness)
+    // =====================================================================
     match /usernames/{username} {
       allow read: if isSignedIn();
       // A user can only create a username document that maps to their own UID
@@ -22,89 +22,99 @@ service cloud.firestore {
       allow update: if false; // Usernames are not updatable, they are deleted and re-created
     }
 
-    // ========== USERS (profile data) ==========
+    // =====================================================================
+    // USERS (profile data)
+    // =====================================================================
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId;
       // A user can only update their own profile (username or photo)
-      allow update: if request.auth.uid == userId
+      allow update: if isSignedIn()
+                    && request.auth.uid == userId
                     && request.resource.data.uid == userId; // Cannot change UID
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
-
-    // ========== GROUPS & MESSAGES ==========
+    
+    // =====================================================================
+    // GROUPS & MESSAGES
+    // =====================================================================
     match /groups/{groupId} {
-      // READ: A user can read a group's info if they are a member.
-      allow read: if isSignedIn() && isMember(resource.data);
+      // --- PERMISSIONS ---
+      function isMember() {
+        return request.auth.uid in resource.data.memberUserIds;
+      }
+      
+      function isOwner() {
+        return request.auth.uid == resource.data.ownerId;
+      }
+
+      // READ: A user can read a group's details if they are a member.
+      allow read: if isSignedIn() && isMember();
 
       // CREATE: A user can create a group if they are the owner and sole initial member.
       allow create: if isSignedIn()
                     && request.resource.data.ownerId == request.auth.uid
-                    && request.resource.data.memberUserIds[0] == request.auth.uid
-                    && request.resource.data.memberUserIds.size() == 1;
+                    && request.resource.data.memberUserIds == [request.auth.uid];
+                      
+      // UPDATE: A user can update a group under specific conditions (joining, owner editing, etc.).
+      allow update: if isSignedIn() && (isJoiningGroup() || isOwnerEditing() || isOwnerUpdatingTimer());
 
-      // UPDATE: A user can update a group under specific conditions (joining, owner editing, etc.)
-      allow update: if isSignedIn() && (
-                      isJoiningGroup(resource.data, request.resource.data) ||
-                      isOwnerManagingGroup(resource.data, request.resource.data) ||
-                      isMemberUpdatingActivity(resource.data, request.resource.data) ||
-                      isServerCleaningGroup(resource.data, request.resource.data)
-                    );
-      
-      // DELETE: Groups are never deleted by clients.
+      // DELETE: Groups are never deleted by clients, only by backend functions (implicitly).
       allow delete: if false;
 
-      // --- HELPER FUNCTIONS for /groups/{groupId} ---
 
-      function isJoiningGroup(existing, incoming) {
+      // --- HELPER FUNCTIONS for group updates ---
+      function isJoiningGroup() {
+        let incoming = request.resource.data;
+        let existing = resource.data;
+        
         let isAddingSelf = incoming.memberUserIds == existing.memberUserIds.concat([request.auth.uid]);
-        let isNotAlreadyMember = !isMember(existing);
-        let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
+        let isNotAlreadyMember = !(request.auth.uid in existing.memberUserIds);
+
+        // Ensure no other critical fields are being changed when joining
+        return isAddingSelf && isNotAlreadyMember
+          && incoming.name == existing.name
+          && incoming.description == existing.description
+          && incoming.ownerId == existing.ownerId;
+      }
+
+      function isOwnerEditing() {
+        let incoming = request.resource.data;
+        let existing = resource.data;
+
+        // Ensure only mutable fields are being changed by the owner.
+        let allowedFields = ['name', 'description', 'imageUrl', 'lastActivity'];
+        let changedKeys = incoming.diff(existing).affectedKeys();
         
-        return isAddingSelf && isNotAlreadyMember && onlyMembersAndActivityChanged;
+        return isOwner() && changedKeys.hasOnly(allowedFields);
       }
 
-      function isOwnerManagingGroup(existing, incoming) {
-        let userIsOwner = existing.ownerId == request.auth.uid;
-        let immutableFieldsUnchanged = incoming.ownerId == existing.ownerId
-                                       && incoming.createdAt == existing.createdAt
-                                       && incoming.inviteCode == existing.inviteCode
-                                       && incoming.memberUserIds == existing.memberUserIds;
+      function isOwnerUpdatingTimer() {
+        let incoming = request.resource.data;
+        let existing = resource.data;
 
-        return userIsOwner && immutableFieldsUnchanged;
-      }
-      
-      function isMemberUpdatingActivity(existing, incoming) {
-        let userIsMember = isMember(existing);
-        let onlyActivityChanges = incoming.diff(existing).affectedKeys().hasOnly(['lastActivity']);
-        
-        return userIsMember && onlyActivityChanges;
-      }
-      
-      function isServerCleaningGroup(existing, incoming) {
-        let wasExpired = existing.selfDestructAt.toMillis() < request.time.toMillis();
-        let isMarkingCleaned = incoming.isCleaned == true && incoming.inviteCode == null;
-        let onlyCleanupFieldsChanged = incoming.diff(existing).affectedKeys().hasOnly(['isCleaned', 'inviteCode']);
-        
-        // This rule assumes a trusted server-side process performs cleanup.
-        // It's less secure if clients trigger it, but for now we allow it if the group was expired.
-        return wasExpired && isMarkingCleaned && onlyCleanupFieldsChanged;
+        // Ensure only the selfDestructAt field is being changed by the owner.
+         let allowedFields = ['selfDestructAt'];
+         let changedKeys = incoming.diff(existing).affectedKeys();
+         
+         return isOwner() && changedKeys.hasOnly(allowedFields);
       }
 
 
-      // === SUBCOLLECTION: MESSAGES ===
+      // --- SUBCOLLECTION: MESSAGES ---
       match /messages/{messageId} {
         // READ: Only members of the parent group can read messages.
-        allow read: if isSignedIn() && isMember(get(/databases/$(database)/documents/groups/$(groupId)).data);
+        allow read: if isSignedIn() && get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
 
         // CREATE: Only members can create messages, and they must be the sender.
         allow create: if isSignedIn()
-                      && isMember(get(/databases/$(database)/documents/groups/$(groupId)).data)
+                      && get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid])
                       && request.resource.data.senderId == request.auth.uid;
 
-        // UPDATE: Only members can update messages, and ONLY for adding/removing reactions.
-        // This ensures no other part of the message can be changed.
+        // UPDATE: Only members can update messages (for reactions).
+        // They cannot change the original text, sender, or creation time.
         allow update: if isSignedIn()
-                      && isMember(get(/databases/$(database)/documents/groups/$(groupId)).data)
+                      && get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid])
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
         
         // DELETE: No one can delete individual messages.

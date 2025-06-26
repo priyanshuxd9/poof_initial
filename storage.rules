@@ -1,33 +1,28 @@
-
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // --- USER AVATARS ---
-    // A user can only write to their own avatar path.
-    // The path is /user-avatars/{userId}/...
+    // Helper Function
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // User Avatars: Only the user themselves can write to their avatar path.
+    // This rule is unchanged and remains secure.
     match /user-avatars/{userId}/{allPaths=**} {
-      allow read; // Anyone can read profile pictures
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if true; // Anyone can read profile pictures
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- GROUP AVATARS ---
-    match /group-avatars/{groupId}/{allPaths=**} {
-      allow read; // Anyone can read group icons
-
-      // WRITE: Allow write if the requesting user is the owner of the group document.
-      // This now works for both creating and updating an icon, because the app logic
-      // ensures the Firestore document exists *before* the upload is attempted.
-      allow write: if request.auth != null &&
-                   get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
-    }
-
-    // --- GROUP MEDIA (Photos/Videos in chat) ---
-    match /group-media/{groupId}/{allPaths=**} {
-      // Allow read/write only if the user is a member of the group.
-      allow read, write: if request.auth != null &&
-                         get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
+    // Group Avatars: The path now includes the owner's UID for authorization.
+    // This allows for a simple, secure rule that works for both creation and updates
+    // without needing to check Firestore and avoids race conditions.
+    match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
+      allow read: if true; // Anyone can read group icons
+      
+      // Write is allowed ONLY by the user whose UID matches the ownerId in the path.
+      allow write: if isSignedIn() && request.auth.uid == ownerId;
     }
   }
 }

@@ -113,7 +113,7 @@ export default function GroupInfoPage() {
   
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !groupInfo) return;
 
     if (!file.type.startsWith("image/")) {
       toast({ title: "Invalid File Type", description: "Please select an image file.", variant: "destructive" });
@@ -129,7 +129,7 @@ export default function GroupInfoPage() {
       };
       const compressedFile = await imageCompression(file, options);
       
-      const filePath = `group-avatars/${groupId}/avatar.jpg`;
+      const filePath = `group-avatars/${groupInfo.ownerId}/${groupId}/avatar.jpg`;
       const sRef = storageRef(storage, filePath);
       await uploadBytes(sRef, compressedFile);
       const newImageUrl = await getDownloadURL(sRef);

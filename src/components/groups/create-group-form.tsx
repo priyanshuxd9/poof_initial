@@ -153,7 +153,7 @@ export function CreateGroupForm() {
       const groupId = groupDocRef.id;
 
       try {
-        // Step 1: Create the initial group document in Firestore so it exists for storage rules.
+        // Step 1: Create the initial group document in Firestore so it exists.
         const inviteCode = generateInviteCode();
         const selfDestructDate = new Date();
         selfDestructDate.setDate(selfDestructDate.getDate() + values.selfDestructTimerDays);
@@ -174,9 +174,9 @@ export function CreateGroupForm() {
 
         await setDoc(groupDocRef, initialGroupDocData);
 
-        // Step 2: If an image was selected, upload it now.
+        // Step 2: If an image was selected, upload it now. The storage rule will pass because the ownerId is in the path.
         if (groupImage) {
-          const filePath = `group-avatars/${groupId}/avatar.jpg`;
+          const filePath = `group-avatars/${user.uid}/${groupId}/avatar.jpg`;
           const sRef = storageRef(storage, filePath);
           await uploadBytes(sRef, groupImage);
           const finalImageUrl = await getDownloadURL(sRef);
@@ -213,7 +213,7 @@ export function CreateGroupForm() {
           <FormControl>
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20 cursor-pointer border" onClick={() => fileInputRef.current?.click()}>
-                <AvatarImage src={imagePreview || undefined} alt="Group image preview" className="object-cover"/>
+                <AvatarImage src={imagePreview || undefined} alt="Group image preview" data-ai-hint="group logo" className="object-cover"/>
                 <AvatarFallback className="bg-muted hover:bg-muted/80 transition-colors">
                   <ImagePlus className="h-8 w-8 text-muted-foreground" />
                 </AvatarFallback>
