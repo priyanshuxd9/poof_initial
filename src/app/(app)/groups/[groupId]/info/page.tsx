@@ -293,7 +293,7 @@ export default function GroupInfoPage() {
                         {members.map(member => (
                             <div key={member.uid} className="flex items-center gap-4 hover:bg-muted/50 p-2 rounded-md">
                                 <Avatar className="h-10 w-10">
-                                    <AvatarImage src={member.photoURL || `https://placehold.co/40x40.png`} alt={member.username} data-ai-hint="user avatar"/>
+                                    <AvatarImage src={member.photoURL || `https://placehold.co/40x40.png`} alt={member.username} data-ai-hint="user avatar" className="object-cover"/>
                                     <AvatarFallback className="bg-secondary text-secondary-foreground">{getInitials(member.username)}</AvatarFallback>
                                 </Avatar>
                                 <span className="font-medium text-foreground">{member.username}</span>

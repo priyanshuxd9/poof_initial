@@ -149,7 +149,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     >
       {!isCurrentUser && (
         <Avatar className="h-8 w-8 self-start flex-shrink-0">
-          <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar"/>
+          <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
           <AvatarFallback>{getInitials(sender.username)}</AvatarFallback>
         </Avatar>
       )}
@@ -237,7 +237,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
        {isCurrentUser && (
         <Avatar className="h-8 w-8 self-start flex-shrink-0">
-          <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar"/>
+          <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
           <AvatarFallback>{getInitials(sender.username)}</AvatarFallback>
         </Avatar>
       )}

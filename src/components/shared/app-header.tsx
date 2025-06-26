@@ -82,7 +82,7 @@ export function AppHeader() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10 border-2 border-primary hover:border-accent transition-colors">
-                    <AvatarImage src={user.photoURL || `https://placehold.co/100x100.png`} alt={user.username || "User"} data-ai-hint="profile avatar" />
+                    <AvatarImage src={user.photoURL || `https://placehold.co/100x100.png`} alt={user.username || "User"} data-ai-hint="profile avatar" className="object-cover" />
                     <AvatarFallback className="bg-primary text-primary-foreground">
                       {getInitials(user.username || user.email)}
                     </AvatarFallback>

@@ -47,7 +47,7 @@ export function GroupChatHeader({ group }: GroupChatHeaderProps) {
       </Button>
       <Link href={`/groups/${group.id}/info`} className="flex items-center flex-1 min-w-0 mr-4 group">
         <Avatar className="h-10 w-10 mr-3">
-          <AvatarImage src={group.imageUrl} alt={group.name} data-ai-hint="group avatar"/>
+          <AvatarImage src={group.imageUrl} alt={group.name} data-ai-hint="group avatar" className="object-cover"/>
           <AvatarFallback>{getInitials(group.name)}</AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">

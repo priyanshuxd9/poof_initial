@@ -106,7 +106,7 @@ export default function ProfilePage() {
           <div className="flex items-center space-x-4">
              <div className="relative">
                 <Avatar className="h-20 w-20 border-2 border-primary">
-                  <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} alt={user?.username || "user"} data-ai-hint="profile avatar" />
+                  <AvatarImage src={user?.photoURL || `https://placehold.co/100x100.png`} alt={user?.username || "user"} data-ai-hint="profile avatar" className="object-cover" />
                   <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                       {getInitials(user?.username || user?.email)}
                   </AvatarFallback>
