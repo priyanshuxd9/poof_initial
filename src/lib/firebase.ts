@@ -153,6 +153,19 @@ export const getUsersFromIds = async (userIds: string[]): Promise<AppUser[]> => 
 };
 
 /**
+ * Updates the self-destruct timer for a group. Only owners should be able to call this.
+ * @param groupId The ID of the group to update.
+ * @param newSelfDestructDate The new date for self-destruction.
+ */
+export const updateGroupTimer = async (groupId: string, newSelfDestructDate: Date): Promise<void> => {
+  ensureFirebaseInitialized();
+  const groupRef = doc(db, 'groups', groupId);
+  await updateDoc(groupRef, {
+    selfDestructAt: Timestamp.fromDate(newSelfDestructDate),
+  });
+};
+
+/**
  * Deletes all messages in a group's subcollection and marks the group as cleaned.
  * This is intended to be called for expired groups.
  * @param groupId The ID of the group to clean up.
