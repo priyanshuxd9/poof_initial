@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
-import { db } from "@/lib/firebase";
+import { db, cleanupExpiredGroup } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import {
@@ -119,47 +119,72 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchGroups = async () => {
+    const fetchAndProcessGroups = async () => {
       if (!user || !user.uid) {
         setIsLoadingGroups(false);
-        setGroups([]); // Clear groups if no user
+        setGroups([]);
         return;
       }
       setIsLoadingGroups(true);
       try {
         const groupsRef = collection(db, "groups");
-        // Query only for active groups where user is a member, order by which expires soonest.
-        const q = query(groupsRef, 
-          where("memberUserIds", "array-contains", user.uid),
-          where("selfDestructAt", ">", new Date()),
-          orderBy("selfDestructAt", "asc")
-        );
+        // Query for ALL groups the user is a member of.
+        const q = query(groupsRef, where("memberUserIds", "array-contains", user.uid));
+        
         const querySnapshot = await getDocs(q);
-        const fetchedGroups: Group[] = querySnapshot.docs.map(doc => {
+        
+        const activeGroups: Group[] = [];
+        const groupsToClean: string[] = [];
+
+        querySnapshot.docs.forEach(doc => {
           const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            description: data.description,
-            memberCount: data.memberUserIds?.length || 0,
-            lastActivity: data.lastActivity ? (data.lastActivity as Timestamp).toDate().toISOString() : new Date().toISOString(),
-            imageUrl: data.imageUrl,
-            selfDestructAt: (data.selfDestructAt as Timestamp).toDate().toISOString(),
-            createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-          };
+          const selfDestructDate = (data.selfDestructAt as Timestamp).toDate();
+
+          if (selfDestructDate < new Date() && !data.isCleaned) {
+            // Group is expired and needs cleanup.
+            groupsToClean.push(doc.id);
+          } else if (selfDestructDate >= new Date()) {
+            // Group is active.
+            activeGroups.push({
+              id: doc.id,
+              name: data.name,
+              description: data.description,
+              memberCount: data.memberUserIds?.length || 0,
+              lastActivity: data.lastActivity ? (data.lastActivity as Timestamp).toDate().toISOString() : new Date().toISOString(),
+              imageUrl: data.imageUrl,
+              selfDestructAt: selfDestructDate.toISOString(),
+              createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+            });
+          }
         });
-        setGroups(fetchedGroups);
+
+        // Trigger cleanup for expired groups in the background.
+        if (groupsToClean.length > 0) {
+          console.log(`Cleaning up ${groupsToClean.length} expired groups...`);
+          const cleanupPromises = groupsToClean.map(groupId => cleanupExpiredGroup(groupId));
+          // We don't need to await this, let it run in the background
+          Promise.all(cleanupPromises)
+            .then(() => {
+              console.log("Cleanup complete for expired groups.");
+            })
+            .catch(error => {
+              console.error("Error during background group cleanup:", error);
+            });
+        }
+        
+        // Sort active groups and update the state to render the dashboard.
+        activeGroups.sort((a, b) => new Date(a.selfDestructAt).getTime() - new Date(b.selfDestructAt).getTime());
+        setGroups(activeGroups);
+
       } catch (error) {
-        console.error("Error fetching groups:", error);
-        // This is where the error with the index link will appear
-        // Potentially set an error state here to show to the user
+        console.error("Error fetching and processing groups:", error);
       } finally {
         setIsLoadingGroups(false);
       }
     };
 
-    if (!authLoading) { // Only fetch if auth state is resolved
-      fetchGroups();
+    if (!authLoading) {
+      fetchAndProcessGroups();
     }
   }, [user, authLoading]);
 
