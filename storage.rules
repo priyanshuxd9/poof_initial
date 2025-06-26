@@ -3,30 +3,42 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    // Helper function to check group membership from Firestore
-    function isGroupMember(groupId) {
-      return request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
-    }
-    
-    // Profile pictures: users can only read/write their own
-    match /user-avatars/{userId}/avatar.jpg {
-      allow read: if request.auth != null; // Anyone logged in can see profile pics
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Group icons: only group owner can write
-    match /group-avatars/{groupId}/avatar.jpg {
-       allow read: if request.auth != null; // Anyone logged in can see group icons
-       allow write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+
+    // Helper function to check if a user is a member of a group by reading Firestore.
+    function isGroupMember(groupId, userId) {
+      return userId in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
     }
 
-    // Group media: only group members can read/write, with size and type validation
-    match /group-media/{groupId}/{allPaths=**} {
-      allow read: if request.auth != null && isGroupMember(groupId);
-      allow write: if request.auth != null && isGroupMember(groupId) 
-                   && request.resource.size < 30 * 1024 * 1024 // Max 30MB
-                   && (request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*'));
+    // Profile Pictures:
+    // - Any authenticated user can read them.
+    // - Only the user themselves can upload/update their own avatar.
+    match /user-avatars/{userId}/avatar.jpg {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Group Icons:
+    // - Only group members can read the icon.
+    // - Only the group owner can upload/update the icon.
+    match /group-avatars/{groupId}/avatar.jpg {
+      allow read: if request.auth != null && isGroupMember(groupId, request.auth.uid);
+      allow write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+    }
+
+    // Group Media (Images/Videos):
+    // - Only group members can read media from their group.
+    // - Only group members can upload media to their group, with size and type restrictions.
+    match /group-media/{groupId}/{fileId} {
+      allow read: if request.auth != null && isGroupMember(groupId, request.auth.uid);
+      allow write: if request.auth != null
+                    && isGroupMember(groupId, request.auth.uid)
+                    && request.resource.size < 30 * 1024 * 1024 // 30MB limit
+                    && (request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*'));
+    }
+
+    // Default deny all other access.
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
