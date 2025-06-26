@@ -29,6 +29,7 @@
     --chart-4: 201 60% 40%;
     --chart-5: 198 30% 50%;
     --radius: 0.5rem;
+    --tile-highlight-color: hsl(var(--primary) / 0.4);
 
     /* Sidebar specific colors - adjust if sidebar is used extensively */
     --sidebar-background: 202 85% 92%;
@@ -66,6 +67,7 @@
     --chart-3: 198 40% 70%;
     --chart-4: 198 80% 80%;
     --chart-5: 198 30% 50%;
+    --tile-highlight-color: rgba(255, 255, 255, 0.4);
 
     /* Dark Sidebar specific colors */
     --sidebar-background: 201 81% 12%;
