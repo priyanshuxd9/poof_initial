@@ -83,23 +83,26 @@ function GroupListItem({ group }: GroupListItemProps) {
   }, [group.selfDestructAt, group.createdAt]);
 
   return (
-    <Link href={`/groups/${group.id}`} className="block bg-card text-card-foreground p-4 rounded-lg shadow-md hover:bg-card/95 transition-colors">
-      <div className="flex items-center w-full">
+    <Link href={`/groups/${group.id}`} className="block bg-card text-card-foreground py-3 px-4 rounded-lg shadow-tile hover:bg-card/95 transition-colors">
+      <div className="flex items-center justify-between w-full">
         {/* Left: Group Name */}
         <div className="flex-grow">
           <p className="text-base font-semibold truncate">{group.name}</p>
         </div>
 
-        {/* Right side containing Avatar and Time */}
-        <div className="flex items-center gap-4 flex-shrink-0">
+        {/* Middle: Avatar */}
+        <div className="flex-shrink-0">
             <Avatar className="h-10 w-10">
               <AvatarImage src={group.imageUrl || `https://placehold.co/64x64.png`} alt={group.name} data-ai-hint="group avatar" className="object-cover" />
               <AvatarFallback className="bg-primary text-primary-foreground">
                 {getInitials(group.name)}
               </AvatarFallback>
             </Avatar>
-          
-            <span className={`w-20 text-right text-sm font-medium ${isPoofingSoon && timeRemainingText !== "Poofed!" ? 'text-destructive animate-pulse' : ''}`}>
+        </div>
+
+        {/* Right: Time */}
+        <div className="flex-shrink-0 w-24 text-right">
+            <span className={`text-sm font-medium ${isPoofingSoon && timeRemainingText !== "Poofed!" ? 'text-destructive animate-pulse' : ''}`}>
               {timeRemainingText}
             </span>
         </div>
@@ -185,10 +188,10 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground mb-1">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-xs text-muted-foreground">Manage your Poof groups or start a new one using the '+' below.</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
+          <p className="text-xs text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
       </div>
 
