@@ -4,7 +4,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, SendHorizonal, Paperclip, X, Video } from 'lucide-react';
+import { Loader2, SendHorizonal, Paperclip, X, Video, Smile } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { db, storage } from '@/lib/firebase';
@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { formatFileSize } from '@/lib/utils';
 import Image from 'next/image';
 import imageCompression from 'browser-image-compression';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface MessageInputProps {
   groupId: string;
@@ -22,6 +23,8 @@ interface MessageInputProps {
 const MAX_FILE_SIZE_MB = 30;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
+const EMOJIS = ['😀', '😂', '👍', '❤️', '🤔', '🎉', '🔥', '🙏', '😢', '😮', '🤯', '😎', '🥳', '😇', '💯', '🙌'];
+
 export function MessageInput({ groupId }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -29,8 +32,14 @@ export function MessageInput({ groupId }: MessageInputProps) {
   const [isSending, setIsSending] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji);
+    textInputRef.current?.focus();
+  };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -201,6 +210,27 @@ export function MessageInput({ groupId }: MessageInputProps) {
         >
             <Paperclip className="h-5 w-5" />
         </Button>
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" disabled={isSending} aria-label="Add emoji">
+                    <Smile className="h-5 w-5" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 mb-2" side="top" align="start">
+                 <div className="grid grid-cols-8 gap-1 rounded-lg bg-popover border p-2 shadow-lg">
+                    {EMOJIS.map(emoji => (
+                        <button
+                            key={emoji}
+                            type="button"
+                            className="text-2xl rounded-md hover:bg-accent p-1 transition-colors"
+                            onClick={() => handleEmojiSelect(emoji)}
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                </div>
+            </PopoverContent>
+        </Popover>
         <input 
             type="file" 
             ref={fileInputRef} 
@@ -210,6 +240,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
             disabled={isSending}
         />
         <Input
+          ref={textInputRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder={file ? "Add a caption..." : "Type a message..."}
