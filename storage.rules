@@ -1,34 +1,31 @@
+
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // User profile pictures: Only the user can write to their own avatar path.
-    match /user-avatars/{userId}/{fileName} {
+    // User Profile Avatars: Only the user can update their own avatar.
+    match /user-avatars/{userId}/avatar.jpg {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId && resource.size < 2 * 1024 * 1024 && resource.contentType.matches('image/.*');
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Group avatars: Only the group owner can write to the group's avatar path.
-    match /group-avatars/{groupId}/{fileName} {
-        allow read: if true;
-        allow write: if request.auth != null &&
-                     exists(/databases/$(database)/documents/groups/$(groupId)) &&
-                     get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid &&
-                     resource.size < 2 * 1024 * 1024 && // 2 MB limit
-                     resource.contentType.matches('image/.*');
-    }
-    
-    // Group media files (images/videos)
-    match /group-media/{groupId}/{fileId} {
-        allow read: if request.auth != null &&
-                    exists(/databases/$(database)/documents/groups/$(groupId)) &&
-                    request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
 
-        allow write: if request.auth != null &&
-                     exists(/databases/$(database)/documents/groups/$(groupId)) &&
-                     request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds &&
-                     resource.size < 30 * 1024 * 1024 && // 30 MB limit
-                     (resource.contentType.matches('image/.*') || resource.contentType.matches('video/.*'));
+    // Group Avatars: Only the group owner can update the group's icon.
+    match /group-avatars/{groupId}/avatar.jpg {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && exists(/databases/(default)/documents/groups/$(groupId))
+                   && get(/databases/(default)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+    }
+
+    // Group Media (images/videos in chat): Only group members can read/write.
+    match /group-media/{groupId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+                         && exists(/databases/(default)/documents/groups/$(groupId))
+                         // Ensure the user is a member of the group.
+                         && request.auth.uid in get(/databases/(default)/documents/groups/$(groupId)).data.memberUserIds
+                         // Enforce a 30MB file size limit.
+                         && request.resource.size < 30 * 1024 * 1024;
     }
   }
 }
