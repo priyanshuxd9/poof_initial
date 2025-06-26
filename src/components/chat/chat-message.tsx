@@ -85,6 +85,53 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     await batch.commit();
   };
 
+  const linkifyText = (text: string) => {
+    const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+    if (!text) return text;
+    
+    const matches = [...text.matchAll(urlRegex)];
+
+    if (matches.length === 0) {
+      return text;
+    }
+
+    const elements: React.ReactNode[] = [];
+    let lastIndex = 0;
+
+    matches.forEach((match, i) => {
+      const url = match[0];
+      const index = match.index || 0;
+
+      // Push the text before the match
+      if (index > lastIndex) {
+        elements.push(text.substring(lastIndex, index));
+      }
+
+      // Push the link
+      elements.push(
+        <a
+          key={i}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:opacity-80"
+          onClick={(e) => e.stopPropagation()} // Prevent popover trigger
+        >
+          {url}
+        </a>
+      );
+
+      lastIndex = index + url.length;
+    });
+
+    // Push the remaining text after the last match
+    if (lastIndex < text.length) {
+      elements.push(text.substring(lastIndex));
+    }
+
+    return elements;
+  };
+
   if (!sender) {
     return (
       <div className="flex items-start gap-3">
@@ -129,7 +176,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
             </div>
         )}
         {message.text && (
-            <p className="whitespace-pre-wrap break-words text-left">{message.text}</p>
+            <p className="whitespace-pre-wrap break-words text-left">{linkifyText(message.text)}</p>
         )}
         <p className={cn(
             "text-xs mt-1 self-start",
