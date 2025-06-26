@@ -99,6 +99,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
       toast({ title: "Not authenticated", variant: "destructive" });
       return;
     }
+    // Don't trim the message to preserve whitespace for code snippets
     if (message === '' && !file) return;
 
     setIsSending(true);
@@ -205,7 +206,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="flex items-start gap-2"
+        className="flex items-end gap-2"
       >
         <Button 
             type="button" 
@@ -217,27 +218,6 @@ export function MessageInput({ groupId }: MessageInputProps) {
         >
             <Paperclip className="h-5 w-5" />
         </Button>
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" disabled={isSending} aria-label="Add emoji">
-                    <Smile className="h-5 w-5" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 mb-2" side="top" align="start">
-                 <div className="grid grid-cols-8 gap-1 rounded-lg bg-popover border p-2 shadow-lg">
-                    {EMOJIS.map(emoji => (
-                        <button
-                            key={emoji}
-                            type="button"
-                            className="text-2xl rounded-md hover:bg-accent p-1 transition-colors"
-                            onClick={() => handleEmojiSelect(emoji)}
-                        >
-                            {emoji}
-                        </button>
-                    ))}
-                </div>
-            </PopoverContent>
-        </Popover>
         <input 
             type="file" 
             ref={fileInputRef} 
@@ -255,8 +235,29 @@ export function MessageInput({ groupId }: MessageInputProps) {
           autoComplete="off"
           disabled={isSending}
           rows={1}
-          className="flex-1 resize-none max-h-32 py-2.5 px-3"
+          className="flex-1 resize-none max-h-32 py-2 px-3"
         />
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" disabled={isSending} aria-label="Add emoji">
+                    <Smile className="h-5 w-5" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 mb-2" side="top" align="end">
+                 <div className="grid grid-cols-8 gap-1 rounded-lg bg-popover border p-2 shadow-lg">
+                    {EMOJIS.map(emoji => (
+                        <button
+                            key={emoji}
+                            type="button"
+                            className="text-2xl rounded-md hover:bg-accent p-1 transition-colors"
+                            onClick={() => handleEmojiSelect(emoji)}
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                </div>
+            </PopoverContent>
+        </Popover>
         <Button type="submit" size="icon" disabled={isSending || (message === '' && !file)}>
           {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizonal className="h-5 w-5" />}
           <span className="sr-only">Send Message</span>
