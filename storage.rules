@@ -1,42 +1,34 @@
-
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if a user is a member of a group.
-    function isGroupMember(groupId) {
-      return request.auth != null && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
-    }
-
-    // Rules for User Profile Pictures
-    match /user-avatars/{userId}/avatar.jpg {
+    // User profile pictures: Only the user can write to their own avatar path.
+    match /user-avatars/{userId}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Rules for Group Avatars
-    match /group-avatars/{groupId}/avatar.jpg {
-      allow read: if isGroupMember(groupId);
-      // Only the group owner can change the icon.
-      allow write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+      allow write: if request.auth != null && request.auth.uid == userId && resource.size < 2 * 1024 * 1024 && resource.contentType.matches('image/.*');
     }
     
-    // Rules for Group Media (Images/Videos)
+    // Group avatars: Only the group owner can write to the group's avatar path.
+    match /group-avatars/{groupId}/{fileName} {
+        allow read: if true;
+        allow write: if request.auth != null &&
+                     exists(/databases/$(database)/documents/groups/$(groupId)) &&
+                     get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid &&
+                     resource.size < 2 * 1024 * 1024 && // 2 MB limit
+                     resource.contentType.matches('image/.*');
+    }
+    
+    // Group media files (images/videos)
     match /group-media/{groupId}/{fileId} {
-      allow read: if isGroupMember(groupId);
+        allow read: if request.auth != null &&
+                    exists(/databases/$(database)/documents/groups/$(groupId)) &&
+                    request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
 
-      // Only allow group members to create new files,
-      // and enforce size and type limits.
-      allow create: if isGroupMember(groupId)
-                    && request.resource.size < 30 * 1024 * 1024 // 30MB limit
-                    && (
-                      request.resource.contentType.matches('image/.*') ||
-                      request.resource.contentType.matches('video/.*')
-                    );
-      
-      // Do not allow users to update or delete media directly from the client.
-      allow update, delete: if false;
+        allow write: if request.auth != null &&
+                     exists(/databases/$(database)/documents/groups/$(groupId)) &&
+                     request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds &&
+                     resource.size < 30 * 1024 * 1024 && // 30 MB limit
+                     (resource.contentType.matches('image/.*') || resource.contentType.matches('video/.*'));
     }
   }
 }
