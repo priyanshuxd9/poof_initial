@@ -90,7 +90,7 @@ function GroupListItem({ group }: GroupListItemProps) {
     <Link href={`/groups/${group.id}`} className="block hover:bg-muted/30 transition-colors rounded-lg">
       <div className="flex items-center p-3 sm:p-4 space-x-3 sm:space-x-4 border-b last:border-b-0">
         <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0">
-          <AvatarImage src={group.imageUrl || `https://placehold.co/64x64.png`} alt={group.name} data-ai-hint="group avatar" />
+          <AvatarImage src={group.imageUrl || `https://placehold.co/64x64.png`} alt={group.name} data-ai-hint="group avatar" className="object-cover" />
           <AvatarFallback className="bg-primary text-primary-foreground text-lg">
             {getInitials(group.name)}
           </AvatarFallback>
