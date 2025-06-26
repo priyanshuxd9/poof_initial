@@ -1,35 +1,43 @@
-
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // Helper function to check if a user is a member of a group by reading Firestore.
+    
     function isGroupMember(groupId) {
-      return exists(/databases/$(database)/documents/groups/$(groupId)) &&
-             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+      return exists(/databases/$(database)/documents/groups/$(groupId))
+             && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
     }
 
-    // User profile pictures: Only the authenticated user can write to their own avatar path.
-    // Anyone can read profile pictures.
+    // ========== USER AVATARS ==========
+    // A user can only write to their own avatar path.
     match /user-avatars/{userId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if true; // Publicly readable
+      allow write: if request.auth.uid == userId;
     }
 
-    // Group icons: Only the group owner can write to the group's avatar path.
-    // Anyone can read group icons.
+    // ========== GROUP AVATARS ==========
+    // This rule handles two cases: creating a new group and updating an existing one.
     match /group-avatars/{groupId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null && 
-                    exists(/databases/$(database)/documents/groups/$(groupId)) &&
-                    get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid;
+      allow read: if true; // Publicly readable
+      allow write: if request.auth != null && (
+        // Case 1: Updating an existing group's icon. User must be the owner.
+        (exists(/databases/$(database)/documents/groups/$(groupId)) &&
+         request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId)
+        ||
+        // Case 2: Creating a new group's icon, where the group doc doesn't exist yet.
+        // Allow any authenticated user to upload the initial avatar, with file constraints.
+        (!exists(/databases/$(database)/documents/groups/$(groupId)) &&
+          fileName == 'avatar.jpg' &&
+          request.resource.size < 2 * 1024 * 1024 &&
+          request.resource.contentType.matches('image/.*'))
+      );
     }
-
-    // Group media: Only members of the group can upload and read media.
-    // We also enforce a 30MB file size limit on writes.
-    match /group-media/{groupId}/{allPaths=**} {
-      allow read: if request.auth != null && isGroupMember(groupId);
-      allow write: if request.auth != null && isGroupMember(groupId) && request.resource.size < 30 * 1024 * 1024;
+    
+    // ========== GROUP MEDIA (Images/Videos in Chat) ==========
+    // Only members of the group can upload or read media.
+    match /group-media/{groupId}/{fileName} {
+        allow read: if isGroupMember(groupId);
+        allow write: if isGroupMember(groupId);
     }
   }
 }
