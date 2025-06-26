@@ -99,7 +99,6 @@ export default function GroupInfoPage() {
     try {
       const options = {
         maxSizeMB: 1,
-        maxWidthOrHeight: 800,
         useWebWorker: true,
       };
       const compressedFile = await imageCompression(file, options);
