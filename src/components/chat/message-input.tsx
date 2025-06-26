@@ -4,7 +4,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, SendHorizonal, Paperclip, X, FileImage, Video } from 'lucide-react';
+import { Loader2, SendHorizonal, Paperclip, X, Video } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { db, storage } from '@/lib/firebase';
@@ -13,6 +13,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { v4 as uuidv4 } from 'uuid';
 import { formatFileSize } from '@/lib/utils';
 import Image from 'next/image';
+import imageCompression from 'browser-image-compression';
 
 interface MessageInputProps {
   groupId: string;
@@ -31,7 +32,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
@@ -53,8 +54,25 @@ export function MessageInput({ groupId }: MessageInputProps) {
         return;
     }
 
-    setFile(selectedFile);
     setPreview(URL.createObjectURL(selectedFile));
+
+    if (selectedFile.type.startsWith('image/')) {
+        try {
+            const options = {
+                maxSizeMB: 5, // Compress to a max of 5MB
+                maxWidthOrHeight: 1920,
+                useWebWorker: true,
+            };
+            const compressedFile = await imageCompression(selectedFile, options);
+            setFile(compressedFile);
+        } catch (error) {
+            console.error("Image compression error, falling back to original:", error);
+            setFile(selectedFile); // Fallback to original file if compression fails
+        }
+    } else {
+        // For videos, just set the file directly
+        setFile(selectedFile);
+    }
   };
   
   const removeFile = () => {
