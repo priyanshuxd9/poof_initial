@@ -136,8 +136,8 @@ export function MessageInput({ groupId }: MessageInputProps) {
         reactions: {},
       };
       
-      if (message.trim()) {
-        messagePayload.text = message.trim();
+      if (message.trim() !== '') {
+        messagePayload.text = message;
       }
 
       if (mediaData) {
