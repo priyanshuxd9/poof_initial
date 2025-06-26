@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { PlusCircle, ListChecks, Info, Clock, LogIn, Plus } from "lucide-react";
+import { PlusCircle, ListChecks, Info, Clock, LogIn, Plus, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -167,7 +167,7 @@ export default function DashboardPage() {
   if (authLoading || isLoadingGroups) {
     return (
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <Skeleton className="h-10 w-48" />
         </div>
         <div className="space-y-2">
@@ -188,9 +188,9 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
           <p className="text-base text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
       </div>
@@ -208,7 +208,7 @@ export default function DashboardPage() {
         </Alert>
       ) : (
         <>
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-4 flex items-center gap-2">
             <ListChecks className="h-6 w-6 text-primary" />
             <h2 className="text-lg font-semibold text-foreground">Your Active Groups</h2>
           </div>
@@ -219,6 +219,15 @@ export default function DashboardPage() {
           </div>
         </>
       )}
+
+      <div className="mt-12 text-center">
+        <Button variant="outline" asChild>
+            <Link href="/archive">
+                <Archive className="mr-2 h-4 w-4" />
+                View Past Groups
+            </Link>
+        </Button>
+      </div>
 
       <div className="fixed bottom-8 right-8 z-50">
         <DropdownMenu>
