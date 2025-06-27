@@ -1,35 +1,28 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if a user is signed in
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // ========== USER AVATARS ==========
-    // Path: user-avatars/{userId}/avatar.jpg
-    // A user can only read/write their own avatar.
-    match /user-avatars/{userId}/{fileName} {
-      allow read: if true; // Publicly readable
-      allow write: if isSignedIn() && request.auth.uid == userId;
-    }
-
-    // ========== GROUP ICONS ==========
-    // Path: group-avatars/{ownerId}/{groupId}/avatar.jpg
-    match /group-avatars/{ownerId}/{groupId}/{fileName} {
-        allow read: if true; // Publicly readable
-        // Allow write only if the user making the request is the owner specified in the path.
-        // This is secure for creation (path must match user) and updates.
-        allow write: if isSignedIn() && request.auth.uid == ownerId;
+    // USER AVATARS: A user can only write to their own avatar path. Public read.
+    match /user-avatars/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // ========== GROUP MEDIA (Images/Videos) ==========
-    // Path: group-media/{groupId}/{fileId}
-    // A user can read/write media if they are a member of the group.
-    match /group-media/{groupId}/{fileName} {
-      allow read, write: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    // GROUP AVATARS: Only the user who is the ownerId in the path can write. Public read.
+    match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == ownerId;
+    }
+
+    // GROUP MEDIA: Any authenticated user who is a member of the group can read/write.
+    // This rule now checks for the existence of the group document before checking membership
+    // to prevent race conditions where the rule is checked before the doc is available.
+    match /group-media/{groupId}/{allPaths=**} {
+      allow read, write: if request.auth != null && 
+        let groupDoc = get(/databases/$(database)/documents/groups/$(groupId))
+        in groupDoc != null && request.auth.uid in groupDoc.data.memberUserIds;
     }
   }
 }
