@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -178,7 +179,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                     </a>
                 ) : null}
                 
-                {(message.mediaType === 'image' || message.mediaType === 'video') && (
+                {(message.mediaType === 'image' || message.mediaType === 'video' || message.mediaType === 'file') && (
                     <a href={message.mediaUrl} download={message.fileName} target="_blank" rel="noopener noreferrer">
                         <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white">
                             <Download className="h-4 w-4" />

@@ -4,7 +4,7 @@
 import { useState, useRef, KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, SendHorizonal, Paperclip, X, Smile, FileText } from 'lucide-react';
+import { Loader2, SendHorizonal, Paperclip, X, Smile, FileText, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { db, storage } from '@/lib/firebase';
@@ -13,6 +13,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { v4 as uuidv4 } from 'uuid';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatFileSize } from '@/lib/utils';
+import NextImage from "next/image";
 
 
 interface MessageInputProps {
@@ -27,6 +28,7 @@ const EMOJIS = ['😀', '😂', '👍', '❤️', '🤔', '🎉', '🔥', '🙏'
 export function MessageInput({ groupId }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,6 +39,14 @@ export function MessageInput({ groupId }: MessageInputProps) {
   const handleEmojiSelect = (emoji: string) => {
     setMessage(prev => prev + emoji);
     textInputRef.current?.focus();
+  };
+  
+  const removeFile = () => {
+    setFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,21 +59,18 @@ export function MessageInput({ groupId }: MessageInputProps) {
             description: `Please select a file smaller than ${MAX_FILE_SIZE_MB}MB.`,
             variant: "destructive"
         });
+        removeFile();
         return;
     }
     setFile(selectedFile);
-  };
-  
-  const removeFile = () => {
-    setFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (selectedFile.type.startsWith("image/")) {
+        setFilePreview(URL.createObjectURL(selectedFile));
     }
   };
 
   const handleSendMessage = async () => {
-    if (!user) {
-      toast({ title: "Not authenticated", variant: "destructive" });
+    if (!user || !user.uid) {
+      toast({ title: "Not authenticated", description: "You must be signed in to send messages.", variant: "destructive" });
       return;
     }
     const trimmedMessage = message.trim();
@@ -72,21 +79,25 @@ export function MessageInput({ groupId }: MessageInputProps) {
     setIsSending(true);
     
     try {
-      let mediaData: { url: string, type: 'file', name: string, size: number } | null = null;
+      let mediaData: { url: string, type: 'image' | 'video' | 'file', name: string, size: number } | null = null;
       
       // 1. Upload file if it exists
       if (file) {
         const fileId = uuidv4();
-        // Path now includes user's UID to satisfy the security rule for writes.
+        // The path MUST include the user's UID to satisfy the new, reliable security rule.
         const filePath = `group-media/${groupId}/${user.uid}/${fileId}`;
         const sRef = storageRef(storage, filePath);
         
         const uploadResult = await uploadBytes(sRef, file);
         const downloadURL = await getDownloadURL(uploadResult.ref);
         
+        let mediaType: 'image' | 'video' | 'file' = 'file';
+        if (file.type.startsWith('image/')) mediaType = 'image';
+        else if (file.type.startsWith('video/')) mediaType = 'video';
+        
         mediaData = {
           url: downloadURL,
-          type: 'file',
+          type: mediaType,
           name: file.name,
           size: file.size
         };
@@ -146,12 +157,17 @@ export function MessageInput({ groupId }: MessageInputProps) {
     }
   };
 
-  return (
-    <div className="flex-shrink-0 p-4 border-t bg-card">
-      {file && (
-         <div className="relative mb-2 p-2 bg-muted rounded-lg w-fit">
+  const renderFilePreview = () => {
+    if (!file) return null;
+
+    return (
+        <div className="relative mb-2 p-2 bg-muted rounded-lg w-fit">
             <div className="flex items-center gap-2">
-                <FileText className="h-6 w-6 text-muted-foreground" />
+                {filePreview ? (
+                    <NextImage src={filePreview} alt="Image preview" width={40} height={40} className="rounded object-cover h-10 w-10" />
+                ) : (
+                    <FileText className="h-8 w-8 text-muted-foreground" />
+                )}
                 <div className="text-sm">
                     <p className="font-medium text-foreground truncate max-w-xs">{file.name}</p>
                     <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
@@ -166,7 +182,12 @@ export function MessageInput({ groupId }: MessageInputProps) {
                 <X className="h-4 w-4" />
              </Button>
          </div>
-      )}
+    );
+  };
+
+  return (
+    <div className="flex-shrink-0 p-4 border-t bg-card">
+      {renderFilePreview()}
       <form
         onSubmit={(e) => {
           e.preventDefault();

@@ -3,29 +3,33 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Helper function to check if a user is signed in
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // User Avatars: Only the owner can upload/update their own avatar. Anyone can read.
+    
+    // User Avatars: Users can only write to their own avatar path. Publicly readable.
     match /user-avatars/{userId}/{allPaths=**} {
       allow read;
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Group Avatars: Only the group owner can create/update. Anyone can read.
-    match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
-        allow read;
-        allow write: if isSignedIn() && request.auth.uid == ownerId;
+    // Group Avatars: Only the group owner can write a group avatar. Publicly readable.
+    match /group-avatars/{ownerId}/{groupId}/avatar.jpg {
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == ownerId;
     }
-
-    // Group Media:
-    // - WRITE: A user can only write to their own subfolder within a group's media folder.
-    // - READ: Any member of the group can read any file in the group's media folder.
+    
+    // Group Media: The most reliable way to secure this is to include the uploader's UID in the path.
+    // This avoids race conditions with checking Firestore on write.
     match /group-media/{groupId}/{userId}/{fileId} {
-      allow read: if isSignedIn() && get(/databases/(default)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
-      allow write: if isSignedIn() && request.auth.uid == userId && request.resource.size < 5 * 1024 * 1024;
+        // READ: Any member of the group can read any file in the group's media folder.
+        // This requires a lookup to Firestore, which is fine for reads.
+        allow read: if request.auth != null && 
+                       exists(/databases/$(database)/documents/groups/$(groupId)) && 
+                       request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+                       
+        // WRITE: A user can only upload (write) if their UID matches the {userId} in the path.
+        // This is a fast, reliable check that doesn't require a database lookup.
+        allow write: if request.auth != null && 
+                        request.auth.uid == userId &&
+                        request.resource.size < 5 * 1024 * 1024; // 5MB limit
     }
   }
 }
