@@ -11,11 +11,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn, getInitials, formatDetailedTimestamp } from "@/lib/utils";
+import { cn, getInitials, formatDetailedTimestamp, formatFileSize } from "@/lib/utils";
 import type { AppUser } from "@/lib/firebase";
 import { Timestamp, doc, writeBatch, arrayUnion, arrayRemove } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
-import { SmilePlus, Download } from "lucide-react";
+import { SmilePlus, Download, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
@@ -29,8 +29,9 @@ export interface Message {
   createdAt: Timestamp;
   reactions?: { [key: string]: string[] }; // e.g., { '👍': ['uid1', 'uid2'] }
   mediaUrl?: string;
-  mediaType?: 'image' | 'video';
+  mediaType?: 'image' | 'video' | 'file';
   fileName?: string;
+  fileSize?: number;
 }
 
 interface ChatMessageProps {
@@ -150,7 +151,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   const MessageContent = () => (
     <>
         {message.mediaUrl && (
-            <div className="relative mb-2 group/media">
+            <div className="relative group/media" style={{ marginBottom: message.text ? '0.5rem' : 0 }}>
                 {message.mediaType === 'image' ? (
                      <NextImage 
                         src={message.mediaUrl}
@@ -160,18 +161,30 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                         className="rounded-lg object-cover max-h-[400px] w-auto"
                         unoptimized // Required for external storage URLs in Next.js
                      />
-                ) : (
+                ) : message.mediaType === 'video' ? (
                     <video
                         src={message.mediaUrl}
                         controls
                         className="rounded-lg max-h-[400px] w-full"
                     />
+                ) : message.mediaType === 'file' ? (
+                    <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-background/50 p-3 rounded-lg hover:bg-background/80 transition-colors">
+                        <FileText className="h-6 w-6 text-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">{message.fileName}</p>
+                            {typeof message.fileSize === 'number' && <p className="text-xs text-muted-foreground">{formatFileSize(message.fileSize)}</p>}
+                        </div>
+                        <Download className="h-5 w-5 text-muted-foreground" />
+                    </a>
+                ) : null}
+                
+                {(message.mediaType === 'image' || message.mediaType === 'video') && (
+                    <a href={message.mediaUrl} download={message.fileName} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white">
+                            <Download className="h-4 w-4" />
+                        </Button>
+                    </a>
                 )}
-                <a href={message.mediaUrl} download={message.fileName} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white">
-                        <Download className="h-4 w-4" />
-                    </Button>
-                </a>
             </div>
         )}
         {message.text && (
@@ -218,10 +231,11 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
             isCurrentUser
               ? "bg-primary text-primary-foreground rounded-br-none"
               : "bg-muted text-foreground rounded-bl-none",
-            !message.text && message.mediaUrl ? "p-1 bg-transparent" : "" // Special case for media-only messages
+            !message.text && message.mediaUrl && message.mediaType !== 'file' ? "p-1 bg-transparent" : "",
+            message.mediaType === 'file' ? 'p-0 bg-transparent' : ''
           )}
         >
-          {!isCurrentUser && (
+          {!isCurrentUser && message.mediaType !== 'file' && (
             <p className="text-xs font-semibold mb-1 text-primary">{sender.username}</p>
           )}
           

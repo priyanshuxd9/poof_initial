@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to check group membership, including a check that the group document exists to prevent race conditions.
+    function isMember(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    }
+
+    // User profile pictures can be read by anyone, but only written by the owner.
+    match /user-avatars/{userId}/avatar.jpg {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Group icons can be read by anyone, but only written by the group's owner.
+    match /group-avatars/{ownerId}/{groupId}/avatar.jpg {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == ownerId;
+    }
+
+    // Group media files can be read by any group member.
+    // They can only be written by a group member if the file size is less than 5MB.
+    match /group-media/{groupId}/{fileId} {
+      allow read: if request.auth != null && isMember(groupId);
+      allow write: if request.auth != null && isMember(groupId) && request.resource.size < 5 * 1024 * 1024;
+    }
+  }
+}

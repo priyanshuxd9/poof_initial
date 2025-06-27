@@ -4,22 +4,22 @@
 import { useState, useRef, KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, SendHorizonal, Paperclip, X, Video, Smile } from 'lucide-react';
+import { Loader2, SendHorizonal, Paperclip, X, Smile, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, writeBatch } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
-import Image from 'next/image';
-import imageCompression from 'browser-image-compression';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { formatFileSize } from '@/lib/utils';
+
 
 interface MessageInputProps {
   groupId: string;
 }
 
-const MAX_FILE_SIZE_MB = 30;
+const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const EMOJIS = ['😀', '😂', '👍', '❤️', '🤔', '🎉', '🔥', '🙏', '😢', '😮', '🤯', '😎', '🥳', '😇', '💯', '🙌'];
@@ -27,7 +27,6 @@ const EMOJIS = ['😀', '😂', '👍', '❤️', '🤔', '🎉', '🔥', '🙏'
 export function MessageInput({ groupId }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,43 +51,11 @@ export function MessageInput({ groupId }: MessageInputProps) {
         });
         return;
     }
-
-    if (!selectedFile.type.startsWith('image/') && !selectedFile.type.startsWith('video/')) {
-        toast({
-            title: "Invalid file type",
-            description: "You can only send images and videos.",
-            variant: "destructive"
-        });
-        return;
-    }
-
-    setPreview(URL.createObjectURL(selectedFile));
-
-    if (selectedFile.type.startsWith('image/')) {
-        try {
-            const options = {
-                maxSizeMB: 5, // Compress to a max of 5MB
-                maxWidthOrHeight: 1920,
-                useWebWorker: true,
-            };
-            const compressedFile = await imageCompression(selectedFile, options);
-            setFile(compressedFile);
-        } catch (error) {
-            console.error("Image compression error, falling back to original:", error);
-            setFile(selectedFile); // Fallback to original file if compression fails
-        }
-    } else {
-        // For videos, just set the file directly
-        setFile(selectedFile);
-    }
+    setFile(selectedFile);
   };
   
   const removeFile = () => {
     setFile(null);
-    if(preview) {
-        URL.revokeObjectURL(preview);
-    }
-    setPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -105,7 +72,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
     setIsSending(true);
     
     try {
-      let mediaData: { url: string, type: 'image' | 'video', name: string, size: number } | null = null;
+      let mediaData: { url: string, type: 'file', name: string, size: number } | null = null;
       
       // 1. Upload file if it exists
       if (file) {
@@ -118,7 +85,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
         
         mediaData = {
           url: downloadURL,
-          type: file.type.startsWith('image/') ? 'image' : 'video',
+          type: 'file',
           name: file.name,
           size: file.size
         };
@@ -136,8 +103,8 @@ export function MessageInput({ groupId }: MessageInputProps) {
         reactions: {},
       };
       
-      if (message !== '') {
-        messagePayload.text = message;
+      if (trimmedMessage !== '') {
+        messagePayload.text = trimmedMessage;
       }
 
       if (mediaData) {
@@ -180,16 +147,15 @@ export function MessageInput({ groupId }: MessageInputProps) {
 
   return (
     <div className="flex-shrink-0 p-4 border-t bg-card">
-      {preview && file && (
+      {file && (
          <div className="relative mb-2 p-2 bg-muted rounded-lg w-fit">
-            {file.type.startsWith('image/') ? (
-                <Image src={preview} alt="Preview" width={80} height={80} className="rounded-md object-cover h-20 w-20"/>
-            ) : (
-                <div className="h-20 w-20 flex flex-col items-center justify-center bg-secondary rounded-md">
-                    <Video className="h-8 w-8 text-secondary-foreground" />
-                    <span className="text-xs text-secondary-foreground mt-1 truncate max-w-full">{file.name}</span>
+            <div className="flex items-center gap-2">
+                <FileText className="h-6 w-6 text-muted-foreground" />
+                <div className="text-sm">
+                    <p className="font-medium text-foreground truncate max-w-xs">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
                 </div>
-            )}
+            </div>
              <Button
                 size="icon"
                 variant="destructive"
@@ -223,7 +189,6 @@ export function MessageInput({ groupId }: MessageInputProps) {
             ref={fileInputRef} 
             onChange={handleFileChange}
             className="hidden" 
-            accept="image/*,video/*"
             disabled={isSending}
         />
         <div className="relative flex-1">

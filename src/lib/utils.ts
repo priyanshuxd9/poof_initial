@@ -52,7 +52,8 @@ export function getInitials(name?: string | null, fallback: string = "P"): strin
   return fallback;
 }
 
-export function formatFileSize(bytes: number, decimals = 2) {
+export function formatFileSize(bytes?: number, decimals = 2) {
+  if (bytes === undefined) return '';
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
