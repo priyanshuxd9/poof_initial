@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -185,7 +184,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     <TooltipProvider delayDuration={100}>
         <Tooltip>
             <TooltipTrigger asChild>
-                <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-default pb-1">
+                <div className="text-xs text-muted-foreground cursor-default pb-1 px-1">
                     {messageDate ? format(messageDate, "p") : ""}
                 </div>
             </TooltipTrigger>
@@ -210,7 +209,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         </Avatar>
       )}
 
-      {!isCurrentUser && <TimestampDisplay />}
+      {isCurrentUser && <TimestampDisplay />}
     
       <div className="flex flex-col max-w-xs md:max-w-md lg:max-w-lg">
         <div
@@ -293,7 +292,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         )}
       </div>
 
-       {isCurrentUser && <TimestampDisplay />}
+       {!isCurrentUser && <TimestampDisplay />}
 
        {isCurrentUser && (
         <Avatar className="h-8 w-8 self-start flex-shrink-0">
