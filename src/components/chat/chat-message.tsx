@@ -20,6 +20,7 @@ import { SmilePlus, Download } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
+import { format } from 'date-fns';
 
 
 export interface Message {
@@ -49,7 +50,6 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   const [popoverOpen, setPopoverOpen] = useState(false);
 
   const messageDate = message.createdAt?.toDate();
-  const formattedTime = formatDetailedTimestamp(messageDate);
 
   const handleReaction = async (newEmoji: string) => {
     if (!user || !groupId || !message.id) return;
@@ -178,13 +178,22 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         {message.text && (
             <p className="whitespace-pre-wrap break-words text-left">{linkifyText(message.text)}</p>
         )}
-        <p className={cn(
-            "text-xs mt-1 self-start",
-            isCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
-        )}>
-            {formattedTime}
-        </p>
     </>
+  );
+
+  const TimestampDisplay = () => (
+    <TooltipProvider delayDuration={100}>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <div className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-default pb-1">
+                    {messageDate ? format(messageDate, "p") : ""}
+                </div>
+            </TooltipTrigger>
+            <TooltipContent>
+                <p>{messageDate ? formatDetailedTimestamp(messageDate) : ""}</p>
+            </TooltipContent>
+        </Tooltip>
+    </TooltipProvider>
   );
 
   return (
@@ -200,6 +209,8 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
           <AvatarFallback>{getInitials(sender.username)}</AvatarFallback>
         </Avatar>
       )}
+
+      {!isCurrentUser && <TimestampDisplay />}
     
       <div className="flex flex-col max-w-xs md:max-w-md lg:max-w-lg">
         <div
@@ -281,6 +292,8 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
              </div>
         )}
       </div>
+
+       {isCurrentUser && <TimestampDisplay />}
 
        {isCurrentUser && (
         <Avatar className="h-8 w-8 self-start flex-shrink-0">
