@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState } from "react";
 import NextImage from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
@@ -172,7 +171,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         return mediaAndTextLayout(
           <Dialog>
             <DialogTrigger asChild>
-              <button className="relative group/media w-full h-full text-left">
+              <button className="relative group/media w-fit text-left">
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
@@ -181,10 +180,16 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                   className="rounded-lg object-cover max-h-[400px] w-auto cursor-pointer hover:brightness-90 transition-all"
                   unoptimized
                 />
-                <a href={message.mediaUrl} download={message.fileName} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white">
-                    <Download className="h-4 w-4" />
-                  </Button>
+                <a 
+                  href={message.mediaUrl} 
+                  download={message.fileName} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(buttonVariants({ variant: 'outline', size: 'icon' }), "absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white")}
+                  aria-label="Download image"
+                >
+                  <Download className="h-4 w-4" />
                 </a>
               </button>
             </DialogTrigger>
