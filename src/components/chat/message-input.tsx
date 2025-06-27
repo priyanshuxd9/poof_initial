@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef } from 'react';
@@ -20,7 +19,7 @@ interface MessageInputProps {
   groupId: string;
 }
 
-const MAX_FILE_SIZE_MB = 30; // Increased limit
+const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const EMOJIS = ['😀', '😂', '👍', '❤️', '🤔', '🎉', '🔥', '🙏', '😢', '😮', '🤯', '😎', '🥳', '😇', '💯', '🙌'];
@@ -86,8 +85,8 @@ export function MessageInput({ groupId }: MessageInputProps) {
       let mediaData: { url: string, type: 'image' | 'video' | 'file', name: string, size: number } | null = null;
       
       if (file) {
-        // The path MUST include the user's UID for the security rule to work.
-        const filePath = `group-media/${groupId}/${user.uid}/${file.name}`;
+        const fileId = uuidv4();
+        const filePath = `group-media/${groupId}/${user.uid}/${fileId}`;
         const sRef = storageRef(storage, filePath);
         
         const uploadResult = await uploadBytes(sRef, file);
@@ -212,7 +211,6 @@ export function MessageInput({ groupId }: MessageInputProps) {
             onChange={handleFileChange}
             className="hidden" 
             disabled={isSending}
-            accept="image/*,video/*"
         />
         <div className="relative flex-1">
             <Textarea
