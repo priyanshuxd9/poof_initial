@@ -3,7 +3,7 @@
 import { useState } from "react";
 import NextImage from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
@@ -23,6 +23,9 @@ import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
@@ -194,6 +197,10 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
               </button>
             </DialogTrigger>
             <DialogContent className="max-w-5xl w-auto p-2 bg-transparent border-none shadow-none">
+              <DialogHeader className="sr-only">
+                <DialogTitle>{message.fileName || "Image Preview"}</DialogTitle>
+                <DialogDescription>Full-screen preview of the image sent in the chat.</DialogDescription>
+              </DialogHeader>
               <NextImage
                 src={message.mediaUrl}
                 alt={message.fileName || "Shared image"}
