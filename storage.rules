@@ -4,25 +4,29 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // Function to check if the requesting user is a member of a given group.
+    // It first checks if the group document exists in Firestore.
+    function isGroupMember(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    }
+
     // USER AVATARS: A user can only write to their own avatar path. Public read.
     match /user-avatars/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
-    
+
     // GROUP AVATARS: Only the user who is the ownerId in the path can write. Public read.
+    // This allows initial upload during creation and future updates by the owner.
     match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == ownerId;
     }
 
     // GROUP MEDIA: Any authenticated user who is a member of the group can read/write.
-    // This rule now checks for the existence of the group document before checking membership
-    // to prevent race conditions where the rule is checked before the doc is available.
     match /group-media/{groupId}/{allPaths=**} {
-      allow read, write: if request.auth != null && 
-        let groupDoc = get(/databases/$(database)/documents/groups/$(groupId))
-        in groupDoc != null && request.auth.uid in groupDoc.data.memberUserIds;
+      allow read, write: if isGroupMember(groupId);
     }
   }
 }
