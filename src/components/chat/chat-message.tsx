@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState } from "react";
 import NextImage from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
@@ -21,6 +20,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
 import { format } from 'date-fns';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -358,5 +358,3 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     </div>
   );
 }
-
-    
