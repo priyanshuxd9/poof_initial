@@ -4,23 +4,29 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // User Avatars: A user can only write to their own avatar path.
+    // Function to check if the requesting user is a member of a given group.
+    // It first checks if the group document exists in Firestore.
+    function isGroupMember(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    }
+
+    // USER AVATARS: A user can only write to their own avatar path. Public read.
     match /user-avatars/{userId}/{allPaths=**} {
-      allow read;
+      allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Group Icons: Only the group owner can write to the group's icon path.
+    // GROUP AVATARS: Only the user who is the ownerId in the path can write. Public read.
+    // This allows initial upload during creation and future updates by the owner.
     match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
-      allow read;
+      allow read: if true;
       allow write: if request.auth != null && request.auth.uid == ownerId;
     }
 
-    // Group Media: A user can write to a path containing their own UID.
-    // Any group member can read any file within the group's folder.
-    match /group-media/{groupId}/{userId}/{allPaths=**} {
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null && exists(/databases/$(database)/documents/groups/$(groupId)) && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    // GROUP MEDIA: Any authenticated user who is a member of the group can read/write.
+    match /group-media/{groupId}/{allPaths=**} {
+      allow read, write: if isGroupMember(groupId);
     }
   }
 }
