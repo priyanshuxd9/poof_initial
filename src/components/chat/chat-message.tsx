@@ -21,6 +21,11 @@ import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
 import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 
 export interface Message {
@@ -149,50 +154,72 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     ([, uids]) => uids && uids.length > 0
   );
 
-  const MessageContent = () => (
-    <>
-        {message.mediaUrl && (
-            <div className="relative group/media" style={{ marginBottom: message.text ? '0.5rem' : 0 }}>
-                {message.mediaType === 'image' ? (
-                     <NextImage 
-                        src={message.mediaUrl}
-                        alt={message.fileName || "Shared image"}
-                        width={300}
-                        height={300}
-                        className="rounded-lg object-cover max-h-[400px] w-auto"
-                        unoptimized // Required for external storage URLs in Next.js
-                     />
-                ) : message.mediaType === 'video' ? (
-                    <video
-                        src={message.mediaUrl}
-                        controls
-                        className="rounded-lg max-h-[400px] w-full"
-                    />
-                ) : message.mediaType === 'file' ? (
-                    <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-background/50 p-3 rounded-lg hover:bg-background/80 transition-colors">
-                        <FileText className="h-6 w-6 text-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground truncate">{message.fileName}</p>
-                            {typeof message.fileSize === 'number' && <p className="text-xs text-muted-foreground">{formatFileSize(message.fileSize)}</p>}
-                        </div>
-                        <Download className="h-5 w-5 text-muted-foreground" />
-                    </a>
-                ) : null}
-                
-                {(message.mediaType === 'image' || message.mediaType === 'video' || message.mediaType === 'file') && (
-                    <a href={message.mediaUrl} download={message.fileName} target="_blank" rel="noopener noreferrer">
-                        <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white">
-                            <Download className="h-4 w-4" />
-                        </Button>
-                    </a>
-                )}
-            </div>
-        )}
+  const MessageContent = () => {
+    // This helper function handles laying out media with optional text below it.
+    const mediaAndTextLayout = (mediaElement: React.ReactNode) => (
+      <>
+        <div style={{ marginBottom: message.text ? '0.5rem' : 0 }}>
+          {mediaElement}
+        </div>
         {message.text && (
-            <p className="whitespace-pre-wrap break-words text-left">{linkifyText(message.text)}</p>
+          <p className="whitespace-pre-wrap break-words text-left">{linkifyText(message.text)}</p>
         )}
-    </>
-  );
+      </>
+    );
+
+    if (message.mediaUrl) {
+      if (message.mediaType === 'image') {
+        return mediaAndTextLayout(
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="relative group/media w-full h-full text-left">
+                <NextImage 
+                  src={message.mediaUrl}
+                  alt={message.fileName || "Shared image"}
+                  width={300}
+                  height={300}
+                  className="rounded-lg object-cover max-h-[400px] w-auto cursor-pointer hover:brightness-90 transition-all"
+                  unoptimized
+                />
+                <a href={message.mediaUrl} download={message.fileName} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </a>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-5xl w-auto p-2 bg-transparent border-none shadow-none">
+              <NextImage
+                src={message.mediaUrl}
+                alt={message.fileName || "Shared image"}
+                width={1920}
+                height={1080}
+                className="rounded-lg object-contain w-full h-auto max-h-[90vh]"
+                unoptimized
+              />
+            </DialogContent>
+          </Dialog>
+        );
+      }
+      
+      if (message.mediaType === 'file') {
+        return mediaAndTextLayout(
+          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-background/50 p-3 rounded-lg hover:bg-background/80 transition-colors">
+            <FileText className="h-6 w-6 text-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-foreground truncate">{message.fileName}</p>
+              {typeof message.fileSize === 'number' && <p className="text-xs text-muted-foreground">{formatFileSize(message.fileSize)}</p>}
+            </div>
+            <Download className="h-5 w-5 text-muted-foreground" />
+          </a>
+        );
+      }
+    }
+    
+    // Fallback for text-only messages
+    return message.text ? <p className="whitespace-pre-wrap break-words text-left">{linkifyText(message.text)}</p> : null;
+  };
+
 
   const TimestampDisplay = () => (
     <TooltipProvider delayDuration={100}>

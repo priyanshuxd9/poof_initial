@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, SendHorizonal, Paperclip, X, Smile, FileText, Image as ImageIcon } from 'lucide-react';
+import { Loader2, SendHorizonal, Paperclip, X, Smile, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { db, storage } from '@/lib/firebase';
@@ -13,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatFileSize } from '@/lib/utils';
 import NextImage from "next/image";
+import imageCompression from 'browser-image-compression';
 
 
 interface MessageInputProps {
@@ -61,13 +63,45 @@ export function MessageInput({ groupId }: MessageInputProps) {
         removeFile();
         return;
     }
-    setFile(selectedFile);
     
-    // Only generate preview for images
+    if (selectedFile.type.startsWith("video/")) {
+        toast({
+            title: "Video Uploads Coming Soon!",
+            description: "We're still working on the video upload feature. Please select another file.",
+        });
+        removeFile();
+        return;
+    }
+
     if (selectedFile.type.startsWith("image/")) {
-        setFilePreview(URL.createObjectURL(selectedFile));
+        try {
+            toast({ title: "Compressing image...", description: "Please wait a moment." });
+            const options = {
+                maxSizeMB: 1.5,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true,
+            };
+            const compressedFile = await imageCompression(selectedFile, options);
+            setFile(compressedFile);
+            setFilePreview(URL.createObjectURL(compressedFile));
+            toast({
+                title: "Image Ready!",
+                description: `Compressed from ${formatFileSize(selectedFile.size)} to ${formatFileSize(compressedFile.size)}.`,
+            });
+        } catch (error) {
+            console.error("Image compression failed:", error);
+            toast({
+                title: "Compression Failed",
+                description: "Could not compress image. Uploading original.",
+                variant: "destructive",
+            });
+            setFile(selectedFile);
+            setFilePreview(URL.createObjectURL(selectedFile));
+        }
     } else {
-        setFilePreview(null); // Clear preview for non-image files
+        // Handle non-image, non-video files
+        setFile(selectedFile);
+        setFilePreview(null);
     }
   };
 
@@ -82,19 +116,18 @@ export function MessageInput({ groupId }: MessageInputProps) {
     setIsSending(true);
     
     try {
-      let mediaData: { url: string, type: 'image' | 'video' | 'file', name: string, size: number } | null = null;
+      let mediaData: { url: string, type: 'image' | 'file', name: string, size: number } | null = null;
       
       if (file) {
         const fileId = uuidv4();
+        // Path includes user ID for secure storage rule matching
         const filePath = `group-media/${groupId}/${user.uid}/${fileId}`;
         const sRef = storageRef(storage, filePath);
         
         const uploadResult = await uploadBytes(sRef, file);
         const downloadURL = await getDownloadURL(uploadResult.ref);
         
-        let mediaType: 'image' | 'video' | 'file' = 'file';
-        if (file.type.startsWith('image/')) mediaType = 'image';
-        else if (file.type.startsWith('video/')) mediaType = 'video';
+        let mediaType: 'image' | 'file' = file.type.startsWith('image/') ? 'image' : 'file';
         
         mediaData = {
           url: downloadURL,
@@ -211,6 +244,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
             onChange={handleFileChange}
             className="hidden" 
             disabled={isSending}
+            accept="image/png, image/jpeg, image/webp, .pdf, .doc, .docx, .txt"
         />
         <div className="relative flex-1">
             <Textarea
