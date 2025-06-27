@@ -1,28 +1,29 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper Function
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    // User Avatars: Only the user themselves can write to their avatar path.
-    // This rule is unchanged and remains secure.
-    match /user-avatars/{userId}/{allPaths=**} {
-      allow read: if true; // Anyone can read profile pictures
-      allow write: if isSignedIn() && request.auth.uid == userId;
+    // User avatars are public readable, but only the user can write to their own path.
+    match /user-avatars/{userId}/avatar.jpg {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Group Avatars: The path now includes the owner's UID for authorization.
-    // This allows for a simple, secure rule that works for both creation and updates
-    // without needing to check Firestore and avoids race conditions.
-    match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
-      allow read: if true; // Anyone can read group icons
-      
-      // Write is allowed ONLY by the user whose UID matches the ownerId in the path.
-      allow write: if isSignedIn() && request.auth.uid == ownerId;
+    // Group avatars are public readable.
+    // Write is allowed if the authenticated user's UID matches the {ownerId} in the path.
+    // This securely allows an owner to upload an image during group creation without race conditions.
+    match /group-avatars/{ownerId}/{groupId}/avatar.jpg {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == ownerId;
+    }
+
+    // Group media files (in chat) are only accessible to members of that group.
+    // This requires checking Firestore to verify membership.
+    match /group-media/{groupId}/{fileId} {
+      allow read, write: if request.auth != null &&
+        exists(/databases/$(database)/documents/groups/$(groupId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
     }
   }
 }
