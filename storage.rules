@@ -4,32 +4,26 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if a user is a member of a group.
-    // It first verifies the group document exists, then checks the member list.
-    function isMember(groupId) {
-      return exists(/databases/$(database)/documents/groups/$(groupId))
-        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    // User Avatars: Allow users to read/write their own avatar.
+    match /user-avatars/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Rules for user profile pictures.
-    // Any user can read, but only the owner can write.
-    match /user-avatars/{userId}/avatar.jpg {
-      allow read: if true;
-      allow write: if request.auth.uid == userId;
-    }
-
-    // Rules for group icons (avatars).
-    // Any user can read, but only the creator of the group can write.
+    // Group Avatars: Allow the group owner to upload an icon.
+    // The path includes the owner's UID, which we can check directly.
     match /group-avatars/{ownerId}/{groupId}/avatar.jpg {
-      allow read: if true;
-      allow write: if request.auth.uid == ownerId;
+       allow read;
+       allow write: if request.auth != null && request.auth.uid == ownerId;
     }
 
-    // Rules for media files shared within a group.
-    // Any member of the group can read or write media.
-    match /group-media/{groupId}/{fileId} {
-      allow read: if isMember(groupId);
-      allow write: if isMember(groupId);
+    // Group Media Files:
+    // READ: Allow if the user is a member of the group.
+    // WRITE: Allow if the user is authenticated and their UID is in the file path.
+    // This avoids race conditions with Firestore 'get' calls on write.
+    match /group-media/{groupId}/{userId}/{fileId} {
+        allow read: if request.auth != null && get(/databases/(default)/documents/groups/$(groupId)).data.memberUserIds.has(request.auth.uid);
+        allow write: if request.auth != null && request.auth.uid == userId && request.resource.size < 5 * 1024 * 1024;
     }
   }
 }
