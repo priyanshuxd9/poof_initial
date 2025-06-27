@@ -4,29 +4,32 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Function to check if the requesting user is a member of a given group.
-    // It first checks if the group document exists in Firestore.
-    function isGroupMember(groupId) {
-      return exists(/databases/$(database)/documents/groups/$(groupId)) &&
-             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    // Helper function to check if a user is a member of a group.
+    // It first verifies the group document exists, then checks the member list.
+    function isMember(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId))
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
     }
 
-    // USER AVATARS: A user can only write to their own avatar path. Public read.
-    match /user-avatars/{userId}/{allPaths=**} {
+    // Rules for user profile pictures.
+    // Any user can read, but only the owner can write.
+    match /user-avatars/{userId}/avatar.jpg {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth.uid == userId;
     }
 
-    // GROUP AVATARS: Only the user who is the ownerId in the path can write. Public read.
-    // This allows initial upload during creation and future updates by the owner.
-    match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
+    // Rules for group icons (avatars).
+    // Any user can read, but only the creator of the group can write.
+    match /group-avatars/{ownerId}/{groupId}/avatar.jpg {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == ownerId;
+      allow write: if request.auth.uid == ownerId;
     }
 
-    // GROUP MEDIA: Any authenticated user who is a member of the group can read/write.
-    match /group-media/{groupId}/{allPaths=**} {
-      allow read, write: if isGroupMember(groupId);
+    // Rules for media files shared within a group.
+    // Any member of the group can read or write media.
+    match /group-media/{groupId}/{fileId} {
+      allow read: if isMember(groupId);
+      allow write: if isMember(groupId);
     }
   }
 }
