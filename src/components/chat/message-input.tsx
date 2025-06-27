@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, KeyboardEvent } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, SendHorizonal, Paperclip, X, Smile, FileText, Image as ImageIcon } from 'lucide-react';
@@ -20,7 +20,7 @@ interface MessageInputProps {
   groupId: string;
 }
 
-const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_MB = 30; // Increased limit
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const EMOJIS = ['😀', '😂', '👍', '❤️', '🤔', '🎉', '🔥', '🙏', '😢', '😮', '🤯', '😎', '🥳', '😇', '💯', '🙌'];
@@ -63,8 +63,12 @@ export function MessageInput({ groupId }: MessageInputProps) {
         return;
     }
     setFile(selectedFile);
+    
+    // Only generate preview for images
     if (selectedFile.type.startsWith("image/")) {
         setFilePreview(URL.createObjectURL(selectedFile));
+    } else {
+        setFilePreview(null); // Clear preview for non-image files
     }
   };
 
@@ -81,11 +85,9 @@ export function MessageInput({ groupId }: MessageInputProps) {
     try {
       let mediaData: { url: string, type: 'image' | 'video' | 'file', name: string, size: number } | null = null;
       
-      // 1. Upload file if it exists
       if (file) {
-        const fileId = uuidv4();
-        // This path MUST include the user's UID to satisfy the security rule.
-        const filePath = `group-media/${groupId}/${user.uid}/${fileId}`;
+        // The path MUST include the user's UID for the security rule to work.
+        const filePath = `group-media/${groupId}/${user.uid}/${file.name}`;
         const sRef = storageRef(storage, filePath);
         
         const uploadResult = await uploadBytes(sRef, file);
@@ -103,9 +105,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
         };
       }
 
-      // 2. Create message in Firestore
       const batch = writeBatch(db);
-      
       const messagesColRef = collection(db, 'groups', groupId, 'messages');
       const newMessageRef = doc(messagesColRef); 
       
@@ -212,6 +212,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
             onChange={handleFileChange}
             className="hidden" 
             disabled={isSending}
+            accept="image/*,video/*"
         />
         <div className="relative flex-1">
             <Textarea
