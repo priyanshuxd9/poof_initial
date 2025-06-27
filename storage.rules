@@ -1,35 +1,31 @@
 
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    // This rule allows anyone to read images from the `images` folder.
-    // It's useful for public assets.
-    match /images/{allPaths=**} {
-      allow read;
+    // Helper function to check if a user is signed in
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // This rule allows users to manage their own profile pictures.
-    // Anyone can read them, but only the owner can write.
+    // User Avatars: Only the owner can upload/update their own avatar. Anyone can read.
     match /user-avatars/{userId}/{allPaths=**} {
       allow read;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // This rule allows group owners to manage their group's avatar.
-    match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null && request.auth.uid == ownerId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- TEMPORARY DEBUGGING RULE ---
-    // This rule is insecure and for diagnostic purposes only.
-    // It allows any authenticated user to upload to the group media folder,
-    // bypassing the complex group membership checks that may be failing.
-    match /group-media/{allPaths=**} {
-      allow write: if request.auth != null && request.resource.size < 5 * 1024 * 1024;
-      
-      // For now, allow any authenticated user to read as well.
-      allow read: if request.auth != null; 
+    // Group Avatars: Only the group owner can create/update. Anyone can read.
+    match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
+        allow read;
+        allow write: if isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    // Group Media:
+    // - WRITE: A user can only write to their own subfolder within a group's media folder.
+    // - READ: Any member of the group can read any file in the group's media folder.
+    match /group-media/{groupId}/{userId}/{fileId} {
+      allow read: if isSignedIn() && get(/databases/(default)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
+      allow write: if isSignedIn() && request.auth.uid == userId && request.resource.size < 5 * 1024 * 1024;
     }
   }
 }
