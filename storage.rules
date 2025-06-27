@@ -3,33 +3,45 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    // User Avatars: Users can only write to their own avatar path. Publicly readable.
-    match /user-avatars/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null && request.auth.uid == userId;
+
+    // Rule for user profile pictures
+    // Any authenticated user can read.
+    // Only the owner can write a file smaller than 2MB.
+    match /user-avatars/{userId}/avatar.jpg {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && request.resource.size < 2 * 1024 * 1024;
     }
 
-    // Group Avatars: Only the group owner can write a group avatar. Publicly readable.
+    // Rule for group icons (avatars)
+    // Any authenticated user can read.
+    // Only the group owner can write a file smaller than 2MB.
+    // The isGroupOwner function checks Firestore to confirm ownership.
     match /group-avatars/{ownerId}/{groupId}/avatar.jpg {
-      allow read;
-      allow write: if request.auth != null && request.auth.uid == ownerId;
+       function isGroupOwner(groupId, ownerId) {
+          // Robust check to ensure the group document exists before accessing its data.
+          return exists(/databases/(default)/documents/groups/$(groupId)) &&
+                 get(/databases/(default)/documents/groups/$(groupId)).data.ownerId == ownerId;
+       }
+       allow read: if request.auth != null;
+       allow write: if request.auth != null && request.auth.uid == ownerId && isGroupOwner(groupId, ownerId) && request.resource.size < 2 * 1024 * 1024;
     }
-    
-    // Group Media: The most reliable way to secure this is to include the uploader's UID in the path.
-    // This avoids race conditions with checking Firestore on write.
+
+    // Rule for media messages within a group
+    // The path includes the user ID of the uploader for a secure and fast write rule.
     match /group-media/{groupId}/{userId}/{fileId} {
-        // READ: Any member of the group can read any file in the group's media folder.
-        // This requires a lookup to Firestore, which is fine for reads.
-        allow read: if request.auth != null && 
-                       exists(/databases/$(database)/documents/groups/$(groupId)) && 
-                       request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
-                       
-        // WRITE: A user can only upload (write) if their UID matches the {userId} in the path.
-        // This is a fast, reliable check that doesn't require a database lookup.
-        allow write: if request.auth != null && 
-                        request.auth.uid == userId &&
-                        request.resource.size < 5 * 1024 * 1024; // 5MB limit
+      // isMember function checks if the requesting user is in the group's member list in Firestore.
+      function isMember(groupId) {
+        // Robust check to ensure the group document exists before trying to access its data.
+        return exists(/databases/(default)/documents/groups/$(groupId)) &&
+               get(/databases/(default)/documents/groups/$(groupId)).data.memberUserIds.hasAny([request.auth.uid]);
+      }
+      
+      // Allow READ access only to members of the group.
+      allow read: if request.auth != null && isMember(groupId);
+      
+      // Allow WRITE access only to the user whose ID is in the path, for files under 5MB.
+      // This is a fast and reliable check that doesn't require a Firestore 'get' call on write.
+      allow write: if request.auth != null && request.auth.uid == userId && request.resource.size < 5 * 1024 * 1024;
     }
   }
 }
