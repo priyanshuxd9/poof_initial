@@ -77,7 +77,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
       // 1. Upload file if it exists
       if (file) {
         const fileId = uuidv4();
-        // Path includes user's UID for a secure and reliable write rule
+        // Path includes user's UID to satisfy the security rule for writes.
         const filePath = `group-media/${groupId}/${user.uid}/${fileId}`;
         const sRef = storageRef(storage, filePath);
         
