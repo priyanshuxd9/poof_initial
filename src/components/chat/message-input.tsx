@@ -225,7 +225,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="flex items-start gap-2"
+        className="flex items-center gap-2"
       >
         <Button 
             type="button" 
@@ -234,7 +234,6 @@ export function MessageInput({ groupId }: MessageInputProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending}
             aria-label="Attach file"
-            className="self-center"
         >
             <Paperclip className="h-5 w-5" />
         </Button>
@@ -256,7 +255,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
               autoComplete="off"
               disabled={isSending}
               rows={1}
-              className="flex-1 resize-none max-h-32 pr-10 py-2.5"
+              className="flex-1 resize-none max-h-32 pr-10 py-2"
             />
             <Popover>
                 <PopoverTrigger asChild>
@@ -280,7 +279,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
                 </PopoverContent>
             </Popover>
         </div>
-        <Button type="submit" size="icon" disabled={isSending || (message.trim() === '' && !file)} className="self-center">
+        <Button type="submit" size="icon" disabled={isSending || (message.trim() === '' && !file)}>
           {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizonal className="h-5 w-5" />}
           <span className="sr-only">Send Message</span>
         </Button>
