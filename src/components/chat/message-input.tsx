@@ -255,7 +255,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
               autoComplete="off"
               disabled={isSending}
               rows={1}
-              className="flex-1 resize-none max-h-32 pr-10 py-2"
+              className="h-10 flex-1 resize-none max-h-32 pr-10 py-2"
             />
             <Popover>
                 <PopoverTrigger asChild>
