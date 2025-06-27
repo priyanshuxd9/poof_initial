@@ -1,9 +1,9 @@
+
 "use client";
 
 import { useState } from "react";
 import NextImage from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
@@ -179,9 +179,9 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
-                  width={300}
-                  height={300}
-                  className="rounded-lg object-cover max-h-[400px] w-auto cursor-pointer hover:brightness-90 transition-all"
+                  width={150}
+                  height={150}
+                  className="rounded-lg object-cover max-h-[200px] w-auto cursor-pointer hover:brightness-90 transition-all"
                   unoptimized
                 />
                 <a 
@@ -190,14 +190,14 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                   target="_blank" 
                   rel="noopener noreferrer" 
                   onClick={(e) => e.stopPropagation()}
-                  className={cn(buttonVariants({ variant: 'outline', size: 'icon' }), "absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white")}
+                  className={cn("absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white inline-flex items-center justify-center rounded-md text-sm font-medium", "hover:bg-accent hover:text-accent-foreground")}
                   aria-label="Download image"
                 >
                   <Download className="h-4 w-4" />
                 </a>
               </button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg w-auto p-2 bg-card border-4 border-red-500 shadow-lg">
+            <DialogContent className="w-screen h-screen max-w-full max-h-full p-2 sm:p-4 bg-black/80 border-none flex items-center justify-center">
               <DialogHeader className="sr-only">
                 <DialogTitle>{message.fileName || "Image Preview"}</DialogTitle>
                 <DialogDescription>Full-screen preview of the image sent in the chat.</DialogDescription>
@@ -207,7 +207,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 alt={message.fileName || "Shared image"}
                 width={1920}
                 height={1080}
-                className="rounded-lg object-contain w-full h-auto max-h-[90vh]"
+                className="rounded-lg object-contain w-full h-auto max-h-screen"
                 unoptimized
               />
             </DialogContent>
