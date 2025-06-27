@@ -110,14 +110,9 @@ export function MessageInput({ groupId }: MessageInputProps) {
       // 1. Upload file if it exists
       if (file) {
         const fileId = uuidv4();
-        const filePath = `group-media/${groupId}/${fileId}-${file.name}`;
+        const filePath = `group-media/${groupId}/${user.uid}/${fileId}-${file.name}`;
         const sRef = storageRef(storage, filePath);
         
-        console.log("--- DEBUG: Attempting to upload file ---");
-        console.log("User UID:", user.uid);
-        console.log("Group ID:", groupId);
-        console.log("Storage Path:", filePath);
-
         const uploadResult = await uploadBytes(sRef, file);
         const downloadURL = await getDownloadURL(uploadResult.ref);
         
