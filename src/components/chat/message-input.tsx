@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, SendHorizonal, Paperclip, X, Video, Smile } from 'lucide-react';
@@ -99,8 +99,8 @@ export function MessageInput({ groupId }: MessageInputProps) {
       toast({ title: "Not authenticated", variant: "destructive" });
       return;
     }
-    // Don't trim the message to preserve whitespace for code snippets
-    if (message === '' && !file) return;
+    const trimmedMessage = message.trim();
+    if (trimmedMessage === '' && !file) return;
 
     setIsSending(true);
     
@@ -113,6 +113,11 @@ export function MessageInput({ groupId }: MessageInputProps) {
         const filePath = `group-media/${groupId}/${fileId}-${file.name}`;
         const sRef = storageRef(storage, filePath);
         
+        console.log("--- DEBUG: Attempting to upload file ---");
+        console.log("User UID:", user.uid);
+        console.log("Group ID:", groupId);
+        console.log("Storage Path:", filePath);
+
         const uploadResult = await uploadBytes(sRef, file);
         const downloadURL = await getDownloadURL(uploadResult.ref);
         
@@ -178,7 +183,6 @@ export function MessageInput({ groupId }: MessageInputProps) {
     }
   };
 
-
   return (
     <div className="flex-shrink-0 p-4 border-t bg-card">
       {preview && file && (
@@ -188,7 +192,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
             ) : (
                 <div className="h-20 w-20 flex flex-col items-center justify-center bg-secondary rounded-md">
                     <Video className="h-8 w-8 text-secondary-foreground" />
-                    <span className="text-xs text-secondary-foreground mt-1 truncate">{file.name}</span>
+                    <span className="text-xs text-secondary-foreground mt-1 truncate max-w-full">{file.name}</span>
                 </div>
             )}
              <Button
@@ -206,7 +210,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="flex items-end gap-2"
+        className="flex items-start gap-2"
       >
         <Button 
             type="button" 
@@ -215,6 +219,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending}
             aria-label="Attach file"
+            className="self-center"
         >
             <Paperclip className="h-5 w-5" />
         </Button>
@@ -226,39 +231,41 @@ export function MessageInput({ groupId }: MessageInputProps) {
             accept="image/*,video/*"
             disabled={isSending}
         />
-        <Textarea
-          ref={textInputRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={file ? "Add a caption..." : "Type a message..."}
-          autoComplete="off"
-          disabled={isSending}
-          rows={1}
-          className="flex-1 resize-none max-h-32 py-2 px-3"
-        />
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" disabled={isSending} aria-label="Add emoji">
-                    <Smile className="h-5 w-5" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 mb-2" side="top" align="end">
-                 <div className="grid grid-cols-8 gap-1 rounded-lg bg-popover border p-2 shadow-lg">
-                    {EMOJIS.map(emoji => (
-                        <button
-                            key={emoji}
-                            type="button"
-                            className="text-2xl rounded-md hover:bg-accent p-1 transition-colors"
-                            onClick={() => handleEmojiSelect(emoji)}
-                        >
-                            {emoji}
-                        </button>
-                    ))}
-                </div>
-            </PopoverContent>
-        </Popover>
-        <Button type="submit" size="icon" disabled={isSending || (message === '' && !file)}>
+        <div className="relative flex-1">
+            <Textarea
+              ref={textInputRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={file ? "Add a caption..." : "Type a message..."}
+              autoComplete="off"
+              disabled={isSending}
+              rows={1}
+              className="flex-1 resize-none max-h-32 pr-10 py-2.5"
+            />
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" disabled={isSending} aria-label="Add emoji" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8">
+                        <Smile className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 mb-2" side="top" align="end">
+                    <div className="grid grid-cols-8 gap-1 rounded-lg bg-popover border p-2 shadow-lg">
+                        {EMOJIS.map(emoji => (
+                            <button
+                                key={emoji}
+                                type="button"
+                                className="text-2xl rounded-md hover:bg-accent p-1 transition-colors"
+                                onClick={() => handleEmojiSelect(emoji)}
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                </PopoverContent>
+            </Popover>
+        </div>
+        <Button type="submit" size="icon" disabled={isSending || (message.trim() === '' && !file)} className="self-center">
           {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizonal className="h-5 w-5" />}
           <span className="sr-only">Send Message</span>
         </Button>

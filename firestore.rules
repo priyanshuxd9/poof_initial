@@ -1,59 +1,47 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Function to check if the requesting user is a member of a given group.
+
+    // Helper to check if user is in the group
     function isMember(groupId) {
-      return request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/groups/$(groupId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
     }
 
-    // ========== USERNAMES (for ensuring uniqueness) ==========
+    // USERNAMES: Enforces unique usernames
     match /usernames/{username} {
       allow read: if request.auth != null;
-      // A user can only create a username document that maps to their own UID
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
-      // A user can only delete their own username document
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow update: if false; // Usernames are not updatable, they are deleted and re-created
+      allow update: if false;
     }
 
-    // ========== USERS (profile information) ==========
+    // USERS: Profile data
     match /users/{userId} {
-      // Any signed-in user can read another user's profile (for avatars, usernames in chat)
       allow read: if request.auth != null;
-      // A user can only create their own profile document, and can only update their own
       allow create, update: if request.auth != null && request.auth.uid == userId;
-      // A user can only delete their own profile
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // ========== GROUPS ==========
+    // GROUPS
     match /groups/{groupId} {
-      // Allow read/get if the user is a member of the group
       allow get: if isMember(groupId);
-      // Allow listing of groups only through specific queries, not general collection reads
       allow list: if request.auth != null;
 
-      // Allow creating a group if the user is signed in and is listed as the owner and first member
-      allow create: if request.auth != null 
-                    && request.resource.data.ownerId == request.auth.uid
-                    && request.auth.uid in request.resource.data.memberUserIds;
-      
-      // Allow updates (like adding a member, changing timer, icon) only by the group owner
+      allow create: if request.auth != null &&
+                     request.resource.data.ownerId == request.auth.uid &&
+                     request.auth.uid in request.resource.data.memberUserIds;
+
       allow update: if isMember(groupId) && resource.data.ownerId == request.auth.uid;
-      
-      // Nobody can delete a group document directly. Groups are "archived" by setting a past timer.
-      allow delete: if false;
-      
-      // --- SUBCOLLECTION: MESSAGES ---
+
+      allow delete: if false; // Prevent direct deletion
+
+      // MESSAGES subcollection
       match /messages/{messageId} {
-        // Allow reading messages if the user is a member of the parent group
         allow read: if isMember(groupId);
-        // Allow writing/updating messages (e.g., adding reactions) if user is a member
         allow create, update: if isMember(groupId) && request.resource.data.senderId == request.auth.uid;
-        // Don't allow users to delete messages
         allow delete: if false;
       }
     }
