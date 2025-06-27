@@ -197,7 +197,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 </a>
               </button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg w-auto p-2 bg-transparent border-none shadow-none">
+            <DialogContent className="max-w-xs w-auto p-2 bg-transparent border-none shadow-none">
               <DialogHeader className="sr-only">
                 <DialogTitle>{message.fileName || "Image Preview"}</DialogTitle>
                 <DialogDescription>Full-screen preview of the image sent in the chat.</DialogDescription>
@@ -358,3 +358,5 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     </div>
   );
 }
+
+    
