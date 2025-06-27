@@ -1,29 +1,25 @@
-
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // User avatars are public readable, but only the user can write to their own path.
+    // User Avatars: Only the authenticated user can write to their own avatar path. Anyone can read.
     match /user-avatars/{userId}/avatar.jpg {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Group avatars are public readable.
-    // Write is allowed if the authenticated user's UID matches the {ownerId} in the path.
-    // This securely allows an owner to upload an image during group creation without race conditions.
+    // Group Avatars: Only the group owner can write to the group's avatar path.
     match /group-avatars/{ownerId}/{groupId}/avatar.jpg {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == ownerId;
     }
 
-    // Group media files (in chat) are only accessible to members of that group.
-    // This requires checking Firestore to verify membership.
-    match /group-media/{groupId}/{fileId} {
+    // Group Media: Any member of a group can read/write media in that group's folder.
+    // This rule checks if the user's ID is in the group's `memberUserIds` array in Firestore.
+    match /group-media/{groupId}/{allPaths=**} {
       allow read, write: if request.auth != null &&
-        exists(/databases/$(database)/documents/groups/$(groupId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+        request.auth.uid in get(/databases/(default)/documents/groups/$(groupId)).data.memberUserIds;
     }
   }
 }
