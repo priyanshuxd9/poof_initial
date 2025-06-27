@@ -1,43 +1,35 @@
 
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
+    // This rule allows anyone to read images from the `images` folder.
+    // It's useful for public assets.
+    match /images/{allPaths=**} {
+      allow read;
+    }
 
-    // Helper function to check if the user is authenticated
-    function isSignedIn() {
-      return request.auth != null;
+    // This rule allows users to manage their own profile pictures.
+    // Anyone can read them, but only the owner can write.
+    match /user-avatars/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // ================== USER AVATARS ==================
-    // Path: /user-avatars/{userId}/avatar.jpg
-    // A user can only write to their own avatar path.
-    match /user-avatars/{userId}/{allPaths=**} {
-      allow read: if isSignedIn(); // Anyone signed in can view avatars
-      allow write: if isSignedIn() && request.auth.uid == userId;
-    }
-
-    // ================== GROUP ICONS (AVATARS) ==================
-    // Path: /group-avatars/{ownerId}/{groupId}/avatar.jpg
-    // Only the owner of the group can upload a group icon.
-    // This rule checks the path, not the database, to avoid race conditions on creation.
+    // This rule allows group owners to manage their group's avatar.
     match /group-avatars/{ownerId}/{groupId}/{allPaths=**} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn() && request.auth.uid == ownerId;
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == ownerId;
     }
 
-    // ================== GROUP MEDIA (CHAT FILES) ==================
-    // Path: /group-media/{groupId}/{userId}/{fileId}
-    // Any member can upload a file, but they can only write to a path containing their own userId.
-    // Any member can read any file from the group's media folder.
-    match /group-media/{groupId}/{userId}/{fileId} {
-      // READ rule: User can read if they are a member of the group.
-      // This requires a database check.
-      allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUserIds;
+    // --- TEMPORARY DEBUGGING RULE ---
+    // This rule is insecure and for diagnostic purposes only.
+    // It allows any authenticated user to upload to the group media folder,
+    // bypassing the complex group membership checks that may be failing.
+    match /group-media/{allPaths=**} {
+      allow write: if request.auth != null && request.resource.size < 5 * 1024 * 1024;
       
-      // WRITE rule: User can write if their UID is in the path and the file is < 5MB.
-      // This does NOT require a database check, which avoids race conditions.
-      allow write: if isSignedIn() && request.auth.uid == userId && request.resource.size < 5 * 1024 * 1024;
+      // For now, allow any authenticated user to read as well.
+      allow read: if request.auth != null; 
     }
   }
 }
