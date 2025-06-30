@@ -199,7 +199,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one.</p>
+          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one using the '+' at the bottom.</p>
         </div>
       </div>
 

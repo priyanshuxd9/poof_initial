@@ -179,9 +179,9 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
-                  width={150}
-                  height={150}
-                  className="rounded-lg object-cover max-h-[200px] w-auto cursor-pointer hover:brightness-90 transition-all"
+                  width={75}
+                  height={75}
+                  className="rounded-lg object-cover max-h-[100px] w-auto cursor-pointer hover:brightness-90 transition-all"
                   unoptimized
                 />
                 <a 
@@ -265,7 +265,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
       {isCurrentUser && <TimestampDisplay />}
     
-      <div className="flex flex-col max-w-xs md:max-w-md lg:max-w-lg">
+      <div className="flex flex-col max-w-[70%] sm:max-w-[70%] md:max-w-md lg:max-w-lg">
         <div
           className={cn(
             "relative flex flex-col rounded-xl px-3 py-2",
