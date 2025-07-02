@@ -113,14 +113,12 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         return;
       }
 
-      // Add user to the group.
-      // This is separated from posting a system message because the user
-      // doesn't have permissions to write to the messages subcollection until
-      // after this update is committed.
+      // Add user to the group's member list.
+      // This is the only operation performed to ensure it complies with
+      // strict security rules for non-members.
       const groupDocRef = doc(db, "groups", groupId);
       await updateDoc(groupDocRef, {
         memberUserIds: arrayUnion(user.uid),
-        lastActivity: serverTimestamp(),
       });
 
 
