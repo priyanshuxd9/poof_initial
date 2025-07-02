@@ -15,7 +15,7 @@ import { cn, getInitials, formatDetailedTimestamp, formatFileSize } from "@/lib/
 import type { AppUser } from "@/lib/firebase";
 import { Timestamp, doc, writeBatch, arrayUnion, arrayRemove } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
-import { SmilePlus, Download, FileText, LogIn } from "lucide-react";
+import { SmilePlus, Download, FileText, LogIn, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
@@ -41,7 +41,7 @@ export interface Message {
   mediaType?: 'image' | 'video' | 'file';
   fileName?: string;
   fileSize?: number;
-  type?: 'system_join';
+  type?: 'system_join' | 'system_leave';
 }
 
 interface ChatMessageProps {
@@ -60,10 +60,11 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   const [popoverOpen, setPopoverOpen] = useState(false);
 
   // Handle system messages first
-  if (message.senderId === 'system' && message.type === 'system_join') {
+  if (message.senderId === 'system') {
+    const Icon = message.type === 'system_join' ? LogIn : LogOut;
     return (
       <div className="flex justify-center items-center my-2 gap-2">
-        <LogIn className="h-3 w-3 text-muted-foreground" />
+        <Icon className="h-3 w-3 text-muted-foreground" />
         <span className="text-xs text-muted-foreground italic">
           {message.text}
         </span>

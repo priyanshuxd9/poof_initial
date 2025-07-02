@@ -4,12 +4,12 @@
 import { useParams, useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, Calendar, Crown, Users, ImagePlus, Loader2, Timer, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, User, Calendar, Crown, Users, ImagePlus, Loader2, Timer, Save, Trash2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { db, storage, getUsersFromIds, type AppUser, updateGroupTimer } from "@/lib/firebase";
+import { db, storage, getUsersFromIds, type AppUser, updateGroupTimer, leaveGroup } from "@/lib/firebase";
 import { doc, getDoc, Timestamp, updateDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getInitials } from "@/lib/utils";
@@ -53,6 +53,7 @@ export default function GroupInfoPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingTimer, setIsUpdatingTimer] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State for timer management
@@ -184,6 +185,20 @@ export default function GroupInfoPage() {
     }
   }
 
+  const handleLeaveGroup = async () => {
+    if (!currentUser || !currentUser.uid || !currentUser.username) return;
+    setIsLeaving(true);
+    try {
+      await leaveGroup(groupId, currentUser.uid, currentUser.username);
+      toast({ title: "You have left the group", description: `You are no longer a member of "${groupInfo?.name}".` });
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error("Error leaving group:", error);
+      toast({ title: "Action Failed", description: error.message || "Could not leave the group. Please try again.", variant: "destructive" });
+      setIsLeaving(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -226,6 +241,7 @@ export default function GroupInfoPage() {
     );
   }
 
+  const isOwner = currentUser?.uid === groupInfo.ownerId;
   const newExpiryDate = addDays(new Date(), newTimerDays);
   const isTimerChanged = newTimerDays !== initialTimerDays;
 
@@ -245,7 +261,7 @@ export default function GroupInfoPage() {
                     <AvatarImage src={groupInfo.imageUrl || `https://placehold.co/100x100.png`} alt={groupInfo.name} data-ai-hint="group logo" className="object-cover"/>
                     <AvatarFallback className="bg-primary text-primary-foreground text-3xl">{getInitials(groupInfo.name)}</AvatarFallback>
                 </Avatar>
-                {currentUser?.uid === groupInfo.ownerId && (
+                {isOwner && (
                     <div 
                         className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer group/icon"
                         onClick={() => !isUploading && fileInputRef.current?.click()}
@@ -263,7 +279,7 @@ export default function GroupInfoPage() {
                     onChange={handleImageChange}
                     className="hidden"
                     accept="image/png, image/jpeg, image/webp"
-                    disabled={isUploading || isUpdatingTimer}
+                    disabled={isUploading || isUpdatingTimer || isLeaving}
                 />
             </div>
             <CardTitle className="text-3xl font-bold tracking-tight">{groupInfo.name}</CardTitle>
@@ -305,7 +321,7 @@ export default function GroupInfoPage() {
             </CardContent>
         </Card>
 
-        {currentUser?.uid === groupInfo.ownerId && (
+        {isOwner && (
             <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle>Manage Group Timer</CardTitle>
@@ -322,7 +338,7 @@ export default function GroupInfoPage() {
                                 max={31}
                                 step={1}
                                 className="flex-1"
-                                disabled={isUpdatingTimer}
+                                disabled={isUpdatingTimer || isLeaving}
                             />
                             <span className="text-lg font-semibold w-24 text-center">
                                 {newTimerDays} {newTimerDays === 1 ? 'day' : 'days'}
@@ -340,7 +356,7 @@ export default function GroupInfoPage() {
                         </div>
                         <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive" className="mt-2 sm:mt-0 w-full sm:w-auto" disabled={isUpdatingTimer}>
+                            <Button variant="destructive" className="mt-2 sm:mt-0 w-full sm:w-auto" disabled={isUpdatingTimer || isLeaving}>
                                 <Trash2 className="mr-2 h-4 w-4" /> Poof Now
                             </Button>
                         </AlertDialogTrigger>
@@ -352,13 +368,13 @@ export default function GroupInfoPage() {
                             </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isUpdatingTimer}>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel disabled={isUpdatingTimer || isLeaving}>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                                 onClick={handlePoofNow}
-                                disabled={isUpdatingTimer}
+                                disabled={isUpdatingTimer || isLeaving}
                                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                             >
-                                {isUpdatingTimer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                {(isUpdatingTimer || isLeaving) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                                 Yes, Poof this group
                             </AlertDialogAction>
                             </AlertDialogFooter>
@@ -367,13 +383,59 @@ export default function GroupInfoPage() {
                     </div>
                 </CardContent>
                 <CardFooter className="justify-end">
-                     <Button onClick={handleUpdateTimer} disabled={!isTimerChanged || isUpdatingTimer}>
+                     <Button onClick={handleUpdateTimer} disabled={!isTimerChanged || isUpdatingTimer || isLeaving}>
                         {isUpdatingTimer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Save Timer Changes
                     </Button>
                 </CardFooter>
             </Card>
         )}
+        
+        <Card className="shadow-lg border-destructive">
+            <CardHeader>
+                <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                <CardDescription>Be careful, these actions are permanent.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex flex-col sm:flex-row justify-between items-center rounded-lg border border-destructive/50 p-4">
+                    <div>
+                        <h3 className="font-semibold text-destructive">Leave Group</h3>
+                        <p className="text-sm text-muted-foreground">
+                            {isOwner 
+                                ? "Owners cannot leave a group. You must 'Poof' it instead." 
+                                : "You will be removed from the group and will no longer have access."
+                            }
+                        </p>
+                    </div>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" className="mt-2 sm:mt-0 w-full sm:w-auto" disabled={isOwner || isLeaving}>
+                                <LogOut className="mr-2 h-4 w-4" /> Leave Group
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure you want to leave?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                You will be removed from "{groupInfo.name}" and will need a new invite to rejoin. This action cannot be undone.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={handleLeaveGroup}
+                                disabled={isLeaving}
+                                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                            >
+                                {isLeaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+                                Yes, Leave this group
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            </CardContent>
+        </Card>
       </div>
     </div>
   );

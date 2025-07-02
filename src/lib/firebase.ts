@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type User as FirebaseUser, updateProfile, deleteUser } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, updateDoc, deleteDoc, arrayRemove } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Function to get the initialized Firebase app
@@ -68,7 +68,7 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
   await batch.commit();
 };
 
-export const updateUserUsername = async (uid: string, oldUsername: string, newUsername: string) => {
+export const updateUserUsername = async (uid: string, oldUsername: string, newUsername:string) => {
   ensureFirebaseInitialized();
   const isUsernameUnique = await checkUsernameUnique(newUsername);
   if (!isUsernameUnique) {
@@ -103,7 +103,7 @@ export const updateUserProfilePhoto = async (uid: string, photoURL: string) => {
 };
 
 
-export const deleteUserAccount = async (user: FirebaseUser) => {
+export const deleteUserAccount = async (user: FirebaseUser & { username?: string }) => {
   ensureFirebaseInitialized();
   if (!user.username) throw new Error("Username is missing, cannot delete account data.");
 
@@ -163,4 +163,45 @@ export const updateGroupTimer = async (groupId: string, newSelfDestructDate: Dat
   await updateDoc(groupRef, {
     selfDestructAt: Timestamp.fromDate(newSelfDestructDate),
   });
+};
+
+/**
+ * Allows a user to leave a group, unless they are the owner.
+ * @param groupId The ID of the group to leave.
+ * @param userId The ID of the user leaving.
+ * @param username The username of the user leaving.
+ */
+export const leaveGroup = async (groupId: string, userId: string, username: string): Promise<void> => {
+    ensureFirebaseInitialized();
+    const groupRef = doc(db, 'groups', groupId);
+    const groupSnap = await getDoc(groupRef);
+
+    if (!groupSnap.exists()) {
+        throw new Error("Group not found.");
+    }
+    
+    const groupData = groupSnap.data();
+    if (groupData.ownerId === userId) {
+        throw new Error("Group owners cannot leave. You must 'Poof' the group to delete it.");
+    }
+
+    const batch = writeBatch(db);
+    
+    // 1. Remove user from group
+    batch.update(groupRef, {
+        memberUserIds: arrayRemove(userId),
+        lastActivity: serverTimestamp(),
+    });
+
+    // 2. Add system message to chat
+    const messagesColRef = collection(db, "groups", groupId, "messages");
+    const newMessageRef = doc(messagesColRef);
+    batch.set(newMessageRef, {
+        senderId: "system",
+        type: "system_leave",
+        text: `${username} has left the group.`,
+        createdAt: serverTimestamp(),
+    });
+
+    await batch.commit();
 };
