@@ -50,8 +50,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               photoURL: userData.photoURL || firebaseUser.photoURL || null,
             });
           } else {
-            // This case might happen if user is authenticated but firestore doc creation failed
-            setUser({ ...firebaseUser });
+            // This is a new user signing up, create their DB entry.
+            // The displayName should have been set during the signUp process.
+            if (firebaseUser.displayName) {
+                try {
+                    await saveUserToFirestore(firebaseUser, firebaseUser.displayName);
+                    const newDocSnap = await getDoc(userDocRef);
+                    if (newDocSnap.exists()) {
+                         const userData = newDocSnap.data();
+                         setUser({
+                           ...firebaseUser,
+                           username: userData.username,
+                           photoURL: userData.photoURL,
+                         });
+                    } else {
+                        // This would be an unusual state
+                        setUser({ ...firebaseUser, username: firebaseUser.displayName });
+                    }
+                } catch (dbError) {
+                    console.error("Failed to save new user to Firestore:", dbError);
+                    setUser({ ...firebaseUser }); // Fallback to auth info
+                }
+            } else {
+                 // Fallback for cases where displayName is not set, e.g. social auth in future.
+                 setUser({ ...firebaseUser });
+            }
           }
         } catch (error) {
           console.error("Error fetching user document:", error);
@@ -90,7 +113,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     await updateUserProfilePhoto(user.uid, newPhotoURL);
     
-    // Manually update context now that onSnapshot is gone.
     updateUserContext({ photoURL: newPhotoURL });
   };
 
@@ -124,13 +146,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       if (firebaseUser) {
+        // Set the display name. onAuthStateChanged will handle saving to Firestore.
         await updateProfile(firebaseUser, { displayName: username });
-        await saveUserToFirestore(firebaseUser, username);
       }
     } catch (error: any) {
       console.error("Sign up error:", error);
       setLoading(false);
-      // Re-throw the error so the form can display it. This is more direct.
       throw error;
     }
   };
