@@ -24,11 +24,9 @@ import {
   where,
   getDocs,
   doc,
-  writeBatch,
-  arrayUnion,
-  serverTimestamp,
-  Timestamp,
   updateDoc,
+  arrayUnion,
+  Timestamp,
 } from "firebase/firestore";
 
 
@@ -45,7 +43,6 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
   const router = useRouter();
   
   useEffect(() => {
-    // Reset state when dialog is closed for a clean slate next time
     if (!open) {
       setInviteCode("");
       setIsJoining(false);
@@ -54,7 +51,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
 
 
   const handleSubmit = async () => {
-    if (!user || !user.uid || !user.username) {
+    if (!user || !user.uid) {
       toast({
         title: "Not Authenticated",
         description: "You must be logged in to join a group.",
@@ -81,7 +78,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       if (querySnapshot.empty) {
         toast({
           title: "Group Not Found",
-          description: "No group found with that invite code. Please check the code (it's case-sensitive) and try again.",
+          description: "No group found with that invite code. Please check the code and try again.",
           variant: "destructive",
         });
         setIsJoining(false);
@@ -92,10 +89,10 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       const groupData = groupDoc.data();
       const groupId = groupDoc.id;
 
-      if (groupData.memberUserIds && groupData.memberUserIds.includes(user.uid)) {
+      if (groupData.memberUserIds?.includes(user.uid)) {
         toast({
           title: "Already a Member",
-          description: `You are already a member of "${groupData.name}".`,
+          description: `You are already in "${groupData.name}".`,
         });
         onOpenChange(false);
         router.push(`/groups/${groupId}`);
@@ -106,25 +103,24 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       if (selfDestructTimestamp.toDate() < new Date()) {
          toast({
           title: "Group Expired",
-          description: "This group has already self-destructed and cannot be joined.",
+          description: "This group has already self-destructed.",
           variant: "destructive",
         });
         setIsJoining(false);
         return;
       }
 
-      // Add user to the group's member list.
-      // This is the only operation performed to ensure it complies with
-      // strict security rules for non-members.
+      // This is the minimal operation required to join a group.
+      // It only adds the current user's ID to the member list.
+      // If this fails, the issue is with Firestore security rules.
       const groupDocRef = doc(db, "groups", groupId);
       await updateDoc(groupDocRef, {
         memberUserIds: arrayUnion(user.uid),
       });
 
-
       toast({
         title: "Successfully Joined Group!",
-        description: `You are now a member of "${groupData.name}".`,
+        description: `Welcome to "${groupData.name}".`,
       });
       onOpenChange(false);
       router.refresh(); 
@@ -133,7 +129,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       console.error("Error joining group:", error);
       toast({
         title: "Failed to Join Group",
-        description: error.message || "An unexpected error occurred. Please try again.",
+        description: error.message || "This is likely a security rule misconfiguration. Please check your Firebase project settings.",
         variant: "destructive",
       });
        setIsJoining(false);
