@@ -24,7 +24,7 @@ import {
   where,
   getDocs,
   doc,
-  updateDoc,
+  writeBatch,
   arrayUnion,
   serverTimestamp,
   Timestamp,
@@ -53,7 +53,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
 
 
   const handleSubmit = async () => {
-    if (!user || !user.uid) {
+    if (!user || !user.uid || !user.username) {
       toast({
         title: "Not Authenticated",
         description: "You must be logged in to join a group.",
@@ -112,11 +112,26 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         return;
       }
 
+      const batch = writeBatch(db);
       const groupDocRef = doc(db, "groups", groupId);
-      await updateDoc(groupDocRef, {
+      
+      // 1. Add user to group
+      batch.update(groupDocRef, {
         memberUserIds: arrayUnion(user.uid),
         lastActivity: serverTimestamp(),
       });
+      
+      // 2. Add system message to chat
+      const messagesColRef = collection(db, "groups", groupId, "messages");
+      const newMessageRef = doc(messagesColRef); // auto-generates ID
+      batch.set(newMessageRef, {
+        senderId: "system",
+        type: "system_join",
+        text: `${user.username} has joined the group.`,
+        createdAt: serverTimestamp(),
+      });
+      
+      await batch.commit();
 
       toast({
         title: "Successfully Joined Group!",

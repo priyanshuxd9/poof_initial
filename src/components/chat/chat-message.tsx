@@ -15,7 +15,7 @@ import { cn, getInitials, formatDetailedTimestamp, formatFileSize } from "@/lib/
 import type { AppUser } from "@/lib/firebase";
 import { Timestamp, doc, writeBatch, arrayUnion, arrayRemove } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
-import { SmilePlus, Download, FileText } from "lucide-react";
+import { SmilePlus, Download, FileText, LogIn } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase";
 import { useParams } from "next/navigation";
@@ -41,6 +41,7 @@ export interface Message {
   mediaType?: 'image' | 'video' | 'file';
   fileName?: string;
   fileSize?: number;
+  type?: 'system_join';
 }
 
 interface ChatMessageProps {
@@ -57,6 +58,18 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   const params = useParams();
   const groupId = params.groupId as string;
   const [popoverOpen, setPopoverOpen] = useState(false);
+
+  // Handle system messages first
+  if (message.senderId === 'system' && message.type === 'system_join') {
+    return (
+      <div className="flex justify-center items-center my-2 gap-2">
+        <LogIn className="h-3 w-3 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground italic">
+          {message.text}
+        </span>
+      </div>
+    );
+  }
 
   const messageDate = message.createdAt?.toDate();
 
@@ -179,9 +192,9 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
-                  width={75}
-                  height={75}
-                  className="rounded-lg object-cover max-h-[100px] w-auto cursor-pointer hover:brightness-90 transition-all"
+                  width={38}
+                  height={38}
+                  className="rounded-lg object-cover max-h-[50px] w-auto cursor-pointer hover:brightness-90 transition-all"
                   unoptimized
                 />
                 <a 
@@ -265,7 +278,10 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
       {isCurrentUser && <TimestampDisplay />}
     
-      <div className="flex flex-col max-w-[70%] sm:max-w-[70%] md:max-w-md lg:max-w-lg">
+      <div className={cn(
+        "flex flex-col",
+        isCurrentUser ? "max-w-[70%]" : "max-w-[calc(100%-4rem)]" // Ensure left-side messages have space
+      )}>
         <div
           className={cn(
             "relative flex flex-col rounded-xl px-3 py-2",
