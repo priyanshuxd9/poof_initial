@@ -5,7 +5,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 // Import the specific authentication functions from firebase/auth
 import { updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, sendPasswordResetEmail } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, ensureFirebaseInitialized, saveUserToFirestore, checkUsernameUnique, db, storage, updateUserProfilePhoto } from '@/lib/firebase';
+import { auth, ensureFirebaseInitialized, saveUserToFirestore, db, storage, updateUserProfilePhoto } from '@/lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -121,21 +121,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error("Email and password are required.");
     }
     try {
-      const isUsernameUnique = await checkUsernameUnique(username);
-      if (!isUsernameUnique) {
-        throw new Error("Username is already taken.");
-      }
-
+      // The uniqueness check is now handled by the Firestore transaction via security rules.
+      // This avoids the unauthenticated read error.
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       if (firebaseUser) {
         await updateProfile(firebaseUser, { displayName: username });
         await saveUserToFirestore(firebaseUser, username);
-        // The onAuthStateChanged listener will handle setting the user state.
+        // The onAuthStateChanged listener will handle setting the user state and redirect.
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sign up error:", error);
-      setLoading(false); // Ensure loading is turned off on error
+      // Check for a specific error from Firestore if the username is taken
+      if (error.code === 'permission-denied' || (error.message && error.message.includes('permission-denied'))) {
+        throw new Error("Username is already taken or another error occurred.");
+      }
+      setLoading(false); // Ensure loading is turned off on other errors
       throw error;
     }
   };

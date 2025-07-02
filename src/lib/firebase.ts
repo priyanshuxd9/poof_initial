@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type User as FirebaseUser, updateProfile, deleteUser } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, updateDoc, deleteDoc, arrayRemove } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, updateDoc, deleteDoc, arrayRemove, arrayUnion } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Function to get the initialized Firebase app
@@ -37,13 +37,8 @@ export const ensureFirebaseInitialized = (): FirebaseApp => {
   return getInitializedFirebaseApp();
 };
 
-export const checkUsernameUnique = async (username: string): Promise<boolean> => {
-  ensureFirebaseInitialized();
-  const usernamesRef = collection(db, "usernames");
-  const q = query(usernamesRef, where("username", "==", username.toLowerCase()));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.empty;
-};
+// This function is no longer needed. Uniqueness is handled by the Firestore security rules during the write transaction.
+// export const checkUsernameUnique = async (username: string): Promise<boolean> => { ... };
 
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
   ensureFirebaseInitialized();
@@ -60,6 +55,8 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
     createdAt: serverTimestamp(),
   });
 
+  // This write will fail if the username document already exists, thanks to our security rules.
+  // This is how we enforce username uniqueness now.
   batch.set(usernameDocRef, {
     uid: user.uid,
     username: username,
@@ -70,11 +67,9 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
 
 export const updateUserUsername = async (uid: string, oldUsername: string, newUsername:string) => {
   ensureFirebaseInitialized();
-  const isUsernameUnique = await checkUsernameUnique(newUsername);
-  if (!isUsernameUnique) {
-    throw new Error("Username is already taken.");
-  }
-
+  // We need a way to check uniqueness here now. We'll rely on the transaction failing.
+  // A better implementation would use a cloud function, but for client-only, this is the way.
+  
   const userDocRef = doc(db, "users", uid);
   const oldUsernameDocRef = doc(db, "usernames", oldUsername.toLowerCase());
   const newUsernameDocRef = doc(db, "usernames", newUsername.toLowerCase());
@@ -84,10 +79,14 @@ export const updateUserUsername = async (uid: string, oldUsername: string, newUs
   batch.delete(oldUsernameDocRef);
   batch.set(newUsernameDocRef, { uid: uid, username: newUsername });
   
-  await batch.commit();
-  
-  if (auth.currentUser && auth.currentUser.uid === uid) {
-    await updateProfile(auth.currentUser, { displayName: newUsername });
+  try {
+    await batch.commit();
+    if (auth.currentUser && auth.currentUser.uid === uid) {
+      await updateProfile(auth.currentUser, { displayName: newUsername });
+    }
+  } catch (error) {
+     console.error("Error updating username:", error);
+     throw new Error("Username is already taken or another error occurred.");
   }
 };
 
@@ -187,7 +186,7 @@ export const leaveGroup = async (groupId: string, userId: string, username: stri
 
     const batch = writeBatch(db);
     
-    // 1. Remove user from group
+    // 1. Remove user from group and update activity
     batch.update(groupRef, {
         memberUserIds: arrayRemove(userId),
         lastActivity: serverTimestamp(),
@@ -204,4 +203,43 @@ export const leaveGroup = async (groupId: string, userId: string, username: stri
     });
 
     await batch.commit();
+};
+
+/**
+ * Allows a user to join a group using an invite code.
+ * @param inviteCode The invite code for the group.
+ * @param user The user object of the person joining.
+ */
+export const joinGroupWithCode = async (inviteCode: string, user: { uid: string }) => {
+  ensureFirebaseInitialized();
+  const groupsRef = collection(db, "groups");
+  const q = query(groupsRef, where("inviteCode", "==", inviteCode.trim()));
+  const querySnapshot = await getDocs(q);
+
+  if (querySnapshot.empty) {
+    throw new Error("No group found with that invite code. Please check the code and try again.");
+  }
+
+  const groupDoc = querySnapshot.docs[0];
+  const groupData = groupDoc.data();
+  const groupId = groupDoc.id;
+
+  if (groupData.memberUserIds?.includes(user.uid)) {
+     // User is already a member, return success but indicate no change.
+    return { success: true, alreadyMember: true, groupId: groupId, groupName: groupData.name };
+  }
+  
+  const selfDestructTimestamp = groupData.selfDestructAt as Timestamp;
+  if (selfDestructTimestamp.toDate() < new Date()) {
+     throw new Error("This group has already self-destructed.");
+  }
+
+  const groupDocRef = doc(db, "groups", groupId);
+  // This update now matches the security rules by updating both fields.
+  await updateDoc(groupDocRef, {
+    memberUserIds: arrayUnion(user.uid),
+    lastActivity: serverTimestamp(),
+  });
+
+  return { success: true, alreadyMember: false, groupId: groupId, groupName: groupData.name };
 };

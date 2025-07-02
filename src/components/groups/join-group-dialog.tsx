@@ -17,18 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  updateDoc,
-  arrayUnion,
-  Timestamp,
-  serverTimestamp,
-} from "firebase/firestore";
+import { joinGroupWithCode } from "@/lib/firebase";
 
 
 interface JoinGroupDialogProps {
@@ -72,59 +61,23 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
     setIsJoining(true);
 
     try {
-      const groupsRef = collection(db, "groups");
-      const q = query(groupsRef, where("inviteCode", "==", inviteCode.trim()));
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        toast({
-          title: "Group Not Found",
-          description: "No group found with that invite code. Please check the code and try again.",
-          variant: "destructive",
-        });
-        setIsJoining(false);
-        return;
-      }
-
-      const groupDoc = querySnapshot.docs[0];
-      const groupData = groupDoc.data();
-      const groupId = groupDoc.id;
-
-      if (groupData.memberUserIds?.includes(user.uid)) {
+      const result = await joinGroupWithCode(inviteCode, user);
+      
+      if (result.alreadyMember) {
         toast({
           title: "Already a Member",
-          description: `You are already in "${groupData.name}".`,
+          description: `You are already in "${result.groupName}".`,
         });
         onOpenChange(false);
-        router.push(`/groups/${groupId}`);
-        return;
-      }
-      
-      const selfDestructTimestamp = groupData.selfDestructAt as Timestamp;
-      if (selfDestructTimestamp.toDate() < new Date()) {
-         toast({
-          title: "Group Expired",
-          description: "This group has already self-destructed.",
-          variant: "destructive",
+        router.push(`/groups/${result.groupId}`);
+      } else {
+        toast({
+          title: "Successfully Joined Group!",
+          description: `Welcome to "${result.groupName}".`,
         });
-        setIsJoining(false);
-        return;
+        onOpenChange(false);
+        router.refresh(); 
       }
-
-      const groupDocRef = doc(db, "groups", groupId);
-      // Update both memberUserIds and lastActivity to satisfy security rules.
-      await updateDoc(groupDocRef, {
-        memberUserIds: arrayUnion(user.uid),
-        lastActivity: serverTimestamp(),
-      });
-
-      toast({
-        title: "Successfully Joined Group!",
-        description: `Welcome to "${groupData.name}".`,
-      });
-      onOpenChange(false);
-      router.refresh(); 
-
     } catch (error: any) {
       console.error("Error joining group:", error);
       toast({
@@ -132,7 +85,8 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         description: error.message || "Please check the invite code and your network connection.",
         variant: "destructive",
       });
-       setIsJoining(false);
+    } finally {
+      setIsJoining(false);
     }
   };
 

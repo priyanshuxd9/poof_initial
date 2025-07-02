@@ -60,17 +60,20 @@ service cloud.firestore {
       function isJoiningGroup(existing, incoming) {
         let isAddingSelf = incoming.memberUserIds == existing.memberUserIds.concat([request.auth.uid]);
         let isNotAlreadyMember = !isMember(existing);
+        // This rule is strict: only these two fields can change when joining.
         let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
         
         return isAddingSelf && isNotAlreadyMember && onlyMembersAndActivityChanged;
       }
       
       function isLeavingGroup(existing, incoming) {
-        let isRemovingSelf = incoming.memberUserIds == existing.memberUserIds.removeAll([request.auth.uid]);
-        let userIsMember = isMember(existing);
-        let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
-        
-        return isRemovingSelf && userIsMember && onlyMembersAndActivityChanged;
+          let wasMember = request.auth.uid in existing.memberUserIds;
+          let isNotMemberAnymore = !(request.auth.uid in incoming.memberUserIds);
+          let listDecremented = incoming.memberUserIds.size() == existing.memberUserIds.size() - 1;
+          let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
+          let isNotOwner = existing.ownerId != request.auth.uid;
+
+          return wasMember && isNotMemberAnymore && listDecremented && onlyMembersAndActivityChanged && isNotOwner;
       }
 
       function isOwnerManagingGroup(existing, incoming) {
