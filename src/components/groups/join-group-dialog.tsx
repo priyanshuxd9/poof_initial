@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -49,7 +48,8 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       });
       return;
     }
-    if (!inviteCode.trim()) {
+    const trimmedCode = inviteCode.trim();
+    if (!trimmedCode) {
       toast({
         title: "Invite Code Required",
         description: "Please enter an invite code.",
@@ -59,27 +59,23 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
     }
 
     setIsJoining(true);
+    
+    console.log(`[JoinGroupDialog] Attempting to join group with code: "${trimmedCode}" for user: "${user.uid}"`);
 
     try {
-      const result = await joinGroupWithCode(inviteCode, user.uid);
+      const result = await joinGroupWithCode(trimmedCode, user.uid);
       
-      if (result.alreadyMember) {
-        toast({
-          title: "Already a Member",
-          description: `You are already in "${result.groupName}".`,
-        });
-        onOpenChange(false);
-        router.push(`/groups/${result.groupId}`);
-      } else {
-        toast({
-          title: "Successfully Joined Group!",
-          description: `Welcome to "${result.groupName}".`,
-        });
-        onOpenChange(false);
-        router.refresh(); 
-      }
+      console.log("[JoinGroupDialog] Successfully joined group. Result:", result);
+
+      toast({
+        title: "Successfully Joined Group!",
+        description: `Welcome to "${result.groupName}".`,
+      });
+      onOpenChange(false);
+      router.refresh(); 
+
     } catch (error: any) {
-      console.error("Error joining group:", error);
+      console.error("[JoinGroupDialog] Full error object:", error);
       toast({
         title: "Failed to Join Group",
         description: error.message || "Please check the invite code and your network connection.",
