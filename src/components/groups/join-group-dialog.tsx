@@ -27,6 +27,7 @@ import {
   updateDoc,
   arrayUnion,
   Timestamp,
+  serverTimestamp,
 } from "firebase/firestore";
 
 
@@ -110,12 +111,11 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         return;
       }
 
-      // This is the minimal operation required to join a group.
-      // It only adds the current user's ID to the member list.
-      // If this fails, the issue is with Firestore security rules.
       const groupDocRef = doc(db, "groups", groupId);
+      // Update both memberUserIds and lastActivity to satisfy security rules.
       await updateDoc(groupDocRef, {
         memberUserIds: arrayUnion(user.uid),
+        lastActivity: serverTimestamp(),
       });
 
       toast({
@@ -129,7 +129,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       console.error("Error joining group:", error);
       toast({
         title: "Failed to Join Group",
-        description: error.message || "This is likely a security rule misconfiguration. Please check your Firebase project settings.",
+        description: error.message || "Please check the invite code and your network connection.",
         variant: "destructive",
       });
        setIsJoining(false);
