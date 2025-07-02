@@ -99,9 +99,14 @@ export function AuthForm() {
                 case 'auth/wrong-password':
                      description = "Invalid email or password. Please try again.";
                      break;
+                case 'auth/missing-or-insufficient-permissions':
+                     description = "A permissions error occurred. This could be due to a username already being taken.";
+                     break;
                 default:
-                    description = "An unexpected error occurred. Please try again.";
+                    description = error.message || "An unexpected error occurred. Please try again.";
             }
+        } else if (error.message) {
+            description = error.message;
         }
         
         toast({
