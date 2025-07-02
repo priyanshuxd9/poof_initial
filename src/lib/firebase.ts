@@ -202,9 +202,9 @@ export const leaveGroup = async (groupId: string, userId: string, username: stri
 /**
  * Allows a user to join a group using an invite code.
  * @param inviteCode The invite code for the group.
- * @param user The user object of the person joining.
+ * @param userId The ID of the user joining.
  */
-export const joinGroupWithCode = async (inviteCode: string, user: { uid: string, username: string }) => {
+export const joinGroupWithCode = async (inviteCode: string, userId: string) => {
   ensureFirebaseInitialized();
   const groupsRef = collection(db, "groups");
   const q = query(groupsRef, where("inviteCode", "==", inviteCode.trim()));
@@ -218,7 +218,7 @@ export const joinGroupWithCode = async (inviteCode: string, user: { uid: string,
   const groupData = groupDoc.data();
   const groupId = groupDoc.id;
 
-  if (groupData.memberUserIds?.includes(user.uid)) {
+  if (groupData.memberUserIds?.includes(userId)) {
     return { success: true, alreadyMember: true, groupId: groupId, groupName: groupData.name };
   }
   
@@ -227,26 +227,13 @@ export const joinGroupWithCode = async (inviteCode: string, user: { uid: string,
      throw new Error("This group has already self-destructed.");
   }
 
-  const batch = writeBatch(db);
   const groupDocRef = doc(db, "groups", groupId);
-  const messagesColRef = collection(db, "groups", groupId, "messages");
-  const newMessageRef = doc(messagesColRef);
-
-  // 1. Update group with new member and activity
-  batch.update(groupDocRef, {
-    memberUserIds: arrayUnion(user.uid),
+  
+  // This single update operation is designed to comply with security rules.
+  await updateDoc(groupDocRef, {
+    memberUserIds: arrayUnion(userId),
     lastActivity: serverTimestamp(),
   });
-
-  // 2. Add system message about joining
-  batch.set(newMessageRef, {
-    senderId: 'system',
-    type: 'system_join',
-    text: `${user.username} has joined the group.`,
-    createdAt: serverTimestamp(),
-  });
-
-  await batch.commit();
 
   return { success: true, alreadyMember: false, groupId: groupId, groupName: groupData.name };
 };

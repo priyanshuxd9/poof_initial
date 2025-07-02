@@ -41,7 +41,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
 
 
   const handleSubmit = async () => {
-    if (!user || !user.uid || !user.username) {
+    if (!user || !user.uid) {
       toast({
         title: "Not Authenticated",
         description: "You must be logged in to join a group.",
@@ -61,7 +61,7 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
     setIsJoining(true);
 
     try {
-      const result = await joinGroupWithCode(inviteCode, { uid: user.uid, username: user.username });
+      const result = await joinGroupWithCode(inviteCode, user.uid);
       
       if (result.alreadyMember) {
         toast({
