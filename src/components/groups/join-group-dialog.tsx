@@ -28,6 +28,7 @@ import {
   arrayUnion,
   serverTimestamp,
   Timestamp,
+  updateDoc,
 } from "firebase/firestore";
 
 
@@ -112,26 +113,16 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         return;
       }
 
-      const batch = writeBatch(db);
+      // Add user to the group.
+      // This is separated from posting a system message because the user
+      // doesn't have permissions to write to the messages subcollection until
+      // after this update is committed.
       const groupDocRef = doc(db, "groups", groupId);
-      
-      // 1. Add user to group
-      batch.update(groupDocRef, {
+      await updateDoc(groupDocRef, {
         memberUserIds: arrayUnion(user.uid),
         lastActivity: serverTimestamp(),
       });
-      
-      // 2. Add system message to chat
-      const messagesColRef = collection(db, "groups", groupId, "messages");
-      const newMessageRef = doc(messagesColRef); // auto-generates ID
-      batch.set(newMessageRef, {
-        senderId: "system",
-        type: "system_join",
-        text: `${user.username} has joined the group.`,
-        createdAt: serverTimestamp(),
-      });
-      
-      await batch.commit();
+
 
       toast({
         title: "Successfully Joined Group!",
