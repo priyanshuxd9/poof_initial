@@ -59,14 +59,10 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
     }
 
     setIsJoining(true);
-    
-    console.log(`[JoinGroupDialog] Attempting to join group with code: "${trimmedCode}" for user: "${user.uid}"`);
 
     try {
       const result = await joinGroupWithCode(trimmedCode, user.uid);
       
-      console.log("[JoinGroupDialog] Successfully joined group. Result:", result);
-
       toast({
         title: "Successfully Joined Group!",
         description: `Welcome to "${result.groupName}".`,
@@ -75,10 +71,9 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
       router.refresh(); 
 
     } catch (error: any) {
-      console.error("[JoinGroupDialog] Full error object:", error);
       toast({
         title: "Failed to Join Group",
-        description: error.message || "Please check the invite code and your network connection.",
+        description: error.message || "Please check the invite code and try again.",
         variant: "destructive",
       });
     } finally {

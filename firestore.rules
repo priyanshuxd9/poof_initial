@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -26,7 +25,8 @@ service cloud.firestore {
     // ========== USERS (profile data) ==========
     match /users/{userId} {
       allow read: if isSignedIn();
-      // A user can only create their own profile document. This is the simplest secure rule.
+      // This rule allows a user to create their own profile document.
+      // It's intentionally simple to avoid race conditions during sign-up.
       allow create: if request.auth.uid == userId;
       // A user can only update their own profile (username or photo)
       allow update: if request.auth.uid == userId
@@ -35,8 +35,8 @@ service cloud.firestore {
 
     // ========== GROUPS & MESSAGES ==========
     match /groups/{groupId} {
-      // READ: A user can read a group's info if they are a member.
-      allow read: if isSignedIn() && isMember(resource.data);
+      // READ: Any signed-in user can read group metadata. Messages are protected by a separate rule.
+      allow read: if isSignedIn();
 
       // CREATE: A user can create a group if they are the owner and sole initial member.
       allow create: if isSignedIn()
@@ -66,12 +66,12 @@ service cloud.firestore {
       }
       
       function isLeavingGroup(existing, incoming) {
-        let isRemovingSelf = incoming.memberUserIds == existing.memberUserIds.removed(request.auth.uid);
-        let wasMember = isMember(existing);
-        let isNotOwner = existing.ownerId != request.auth.uid;
-        let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
+          let isRemovingSelf = incoming.memberUserIds == existing.memberUserIds.remove([request.auth.uid]);
+          let isNotOwner = existing.ownerId != request.auth.uid;
+          let isExistingMember = isMember(existing);
+          let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
 
-        return isRemovingSelf && wasMember && isNotOwner && onlyMembersAndActivityChanged;
+          return isRemovingSelf && isNotOwner && isExistingMember && onlyMembersAndActivityChanged;
       }
 
       function isOwnerManagingGroup(existing, incoming) {
@@ -102,7 +102,6 @@ service cloud.firestore {
                       && request.resource.data.senderId == request.auth.uid;
 
         // UPDATE: Only members can update messages, and ONLY for adding/removing reactions.
-        // This ensures no other part of the message can be changed.
         allow update: if isSignedIn()
                       && isMember(get(/databases/$(database)/documents/groups/$(groupId)).data)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);

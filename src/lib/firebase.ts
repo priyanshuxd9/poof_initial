@@ -206,48 +206,38 @@ export const leaveGroup = async (groupId: string, userId: string, username: stri
  */
 export const joinGroupWithCode = async (inviteCode: string, userId: string) => {
   ensureFirebaseInitialized();
-  console.log(`[joinGroupWithCode] Function started. inviteCode: "${inviteCode}", userId: "${userId}"`);
 
   const groupsRef = collection(db, "groups");
   const q = query(groupsRef, where("inviteCode", "==", inviteCode));
   
-  console.log("[joinGroupWithCode] Executing query for invite code...");
   const querySnapshot = await getDocs(q);
 
   if (querySnapshot.empty) {
-    console.log("[joinGroupWithCode] Query returned no results. No group found.");
     throw new Error("No group found with that invite code. Please check the code and try again.");
   }
-  console.log(`[joinGroupWithCode] Query successful. Found ${querySnapshot.docs.length} group(s).`);
 
   const groupDoc = querySnapshot.docs[0];
   const groupData = groupDoc.data();
   const groupId = groupDoc.id;
-  console.log(`[joinGroupWithCode] Group found. ID: ${groupId}`, groupData);
 
 
   if (groupData.memberUserIds?.includes(userId)) {
-    console.log("[joinGroupWithCode] User is already a member. Aborting join.");
     throw new Error(`You are already a member of "${groupData.name}".`);
   }
   
   const selfDestructTimestamp = groupData.selfDestructAt as Timestamp;
   if (selfDestructTimestamp.toDate() < new Date()) {
-    console.log("[joinGroupWithCode] Group is expired. Aborting join.");
     throw new Error("This group has already self-destructed.");
   }
 
   const groupDocRef = doc(db, "groups", groupId);
   
   try {
-    console.log("[joinGroupWithCode] Attempting to update group document in Firestore...");
     await updateDoc(groupDocRef, {
       memberUserIds: arrayUnion(userId),
       lastActivity: serverTimestamp(),
     });
-    console.log("[joinGroupWithCode] Firestore document updated successfully.");
   } catch (error) {
-    console.error("[joinGroupWithCode] Firestore update failed. Full error:", error);
     // Rethrow the original error to be caught by the component
     throw error;
   }
