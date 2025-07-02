@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -16,8 +17,7 @@ service cloud.firestore {
     match /usernames/{username} {
       allow read: if isSignedIn();
       // A user can only create a username document that maps to their own UID
-      // REMOVED: isSignedIn() check to prevent race condition on signup
-      allow create: if request.resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
       // A user can only delete their own username document
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow update: if false; // Usernames are not updatable, they are deleted and re-created
@@ -26,6 +26,7 @@ service cloud.firestore {
     // ========== USERS (profile data) ==========
     match /users/{userId} {
       allow read: if isSignedIn();
+      // A user can only create their own profile document. This is the simplest secure rule.
       allow create: if request.auth.uid == userId;
       // A user can only update their own profile (username or photo)
       allow update: if request.auth.uid == userId
@@ -43,12 +44,12 @@ service cloud.firestore {
                     && request.resource.data.memberUserIds[0] == request.auth.uid
                     && request.resource.data.memberUserIds.size() == 1;
 
-      // UPDATE: A user can update a group under specific conditions (joining, owner editing, etc.)
+      // UPDATE: A user can update a group under specific conditions (joining, leaving, owner editing, etc.)
       allow update: if isSignedIn() && (
                       isJoiningGroup(resource.data, request.resource.data) ||
+                      isLeavingGroup(resource.data, request.resource.data) ||
                       isOwnerManagingGroup(resource.data, request.resource.data) ||
-                      isMemberUpdatingActivity(resource.data, request.resource.data) ||
-                      isServerCleaningGroup(resource.data, request.resource.data)
+                      isMemberUpdatingActivity(resource.data, request.resource.data)
                     );
       
       // DELETE: Groups are never deleted by clients.
@@ -62,6 +63,15 @@ service cloud.firestore {
         let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
         
         return isAddingSelf && isNotAlreadyMember && onlyMembersAndActivityChanged;
+      }
+      
+      function isLeavingGroup(existing, incoming) {
+        let isRemovingSelf = incoming.memberUserIds == existing.memberUserIds.removed(request.auth.uid);
+        let wasMember = isMember(existing);
+        let isNotOwner = existing.ownerId != request.auth.uid;
+        let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
+
+        return isRemovingSelf && wasMember && isNotOwner && onlyMembersAndActivityChanged;
       }
 
       function isOwnerManagingGroup(existing, incoming) {
@@ -80,17 +90,6 @@ service cloud.firestore {
         
         return userIsMember && onlyActivityChanges;
       }
-      
-      function isServerCleaningGroup(existing, incoming) {
-        let wasExpired = existing.selfDestructAt.toMillis() < request.time.toMillis();
-        let isMarkingCleaned = incoming.isCleaned == true && incoming.inviteCode == null;
-        let onlyCleanupFieldsChanged = incoming.diff(existing).affectedKeys().hasOnly(['isCleaned', 'inviteCode']);
-        
-        // This rule assumes a trusted server-side process performs cleanup.
-        // It's less secure if clients trigger it, but for now we allow it if the group was expired.
-        return wasExpired && isMarkingCleaned && onlyCleanupFieldsChanged;
-      }
-
 
       // === SUBCOLLECTION: MESSAGES ===
       match /messages/{messageId} {

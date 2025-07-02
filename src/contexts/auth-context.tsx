@@ -121,22 +121,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error("Email and password are required.");
     }
     try {
-      // The uniqueness check is now handled by the Firestore transaction via security rules.
-      // This avoids the unauthenticated read error.
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       if (firebaseUser) {
         await updateProfile(firebaseUser, { displayName: username });
         await saveUserToFirestore(firebaseUser, username);
-        // The onAuthStateChanged listener will handle setting the user state and redirect.
       }
     } catch (error: any) {
       console.error("Sign up error:", error);
-      // Check for a specific error from Firestore if the username is taken
-      if (error.code === 'permission-denied' || (error.message && error.message.includes('permission-denied'))) {
-        throw new Error("Username is already taken or another error occurred.");
-      }
-      setLoading(false); // Ensure loading is turned off on other errors
+      setLoading(false);
+      // Re-throw the error so the form can display it. This is more direct.
       throw error;
     }
   };

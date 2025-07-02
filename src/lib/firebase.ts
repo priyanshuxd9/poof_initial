@@ -37,9 +37,6 @@ export const ensureFirebaseInitialized = (): FirebaseApp => {
   return getInitializedFirebaseApp();
 };
 
-// This function is no longer needed. Uniqueness is handled by the Firestore security rules during the write transaction.
-// export const checkUsernameUnique = async (username: string): Promise<boolean> => { ... };
-
 export const saveUserToFirestore = async (user: FirebaseUser, username: string) => {
   ensureFirebaseInitialized();
   const userDocRef = doc(db, "users", user.uid);
@@ -56,7 +53,6 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
   });
 
   // This write will fail if the username document already exists, thanks to our security rules.
-  // This is how we enforce username uniqueness now.
   batch.set(usernameDocRef, {
     uid: user.uid,
     username: username,
@@ -67,8 +63,6 @@ export const saveUserToFirestore = async (user: FirebaseUser, username: string) 
 
 export const updateUserUsername = async (uid: string, oldUsername: string, newUsername:string) => {
   ensureFirebaseInitialized();
-  // We need a way to check uniqueness here now. We'll rely on the transaction failing.
-  // A better implementation would use a cloud function, but for client-only, this is the way.
   
   const userDocRef = doc(db, "users", uid);
   const oldUsernameDocRef = doc(db, "usernames", oldUsername.toLowerCase());
@@ -210,7 +204,7 @@ export const leaveGroup = async (groupId: string, userId: string, username: stri
  * @param inviteCode The invite code for the group.
  * @param user The user object of the person joining.
  */
-export const joinGroupWithCode = async (inviteCode: string, user: { uid: string }) => {
+export const joinGroupWithCode = async (inviteCode: string, user: { uid: string, username: string }) => {
   ensureFirebaseInitialized();
   const groupsRef = collection(db, "groups");
   const q = query(groupsRef, where("inviteCode", "==", inviteCode.trim()));
@@ -225,7 +219,6 @@ export const joinGroupWithCode = async (inviteCode: string, user: { uid: string 
   const groupId = groupDoc.id;
 
   if (groupData.memberUserIds?.includes(user.uid)) {
-     // User is already a member, return success but indicate no change.
     return { success: true, alreadyMember: true, groupId: groupId, groupName: groupData.name };
   }
   
@@ -234,12 +227,26 @@ export const joinGroupWithCode = async (inviteCode: string, user: { uid: string 
      throw new Error("This group has already self-destructed.");
   }
 
+  const batch = writeBatch(db);
   const groupDocRef = doc(db, "groups", groupId);
-  // This update now matches the security rules by updating both fields.
-  await updateDoc(groupDocRef, {
+  const messagesColRef = collection(db, "groups", groupId, "messages");
+  const newMessageRef = doc(messagesColRef);
+
+  // 1. Update group with new member and activity
+  batch.update(groupDocRef, {
     memberUserIds: arrayUnion(user.uid),
     lastActivity: serverTimestamp(),
   });
+
+  // 2. Add system message about joining
+  batch.set(newMessageRef, {
+    senderId: 'system',
+    type: 'system_join',
+    text: `${user.username} has joined the group.`,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
 
   return { success: true, alreadyMember: false, groupId: groupId, groupName: groupData.name };
 };
