@@ -83,9 +83,30 @@ export function AuthForm() {
             setMode("signIn");
         }
       } catch (error: any) {
+        let description = "An unexpected error occurred. Please try again.";
+        if (error.code) {
+            switch (error.code) {
+                case 'auth/email-already-in-use':
+                    description = "This email is already registered. Please sign in or use a different email.";
+                    break;
+                case 'auth/weak-password':
+                    description = "The password is too weak. Please use a stronger password (at least 6 characters).";
+                    break;
+                case 'auth/invalid-email':
+                    description = "The email address is not valid. Please check and try again.";
+                    break;
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                     description = "Invalid email or password. Please try again.";
+                     break;
+                default:
+                    description = "An unexpected error occurred. Please try again.";
+            }
+        }
+        
         toast({
           title: mode === "resetPassword" ? "Reset Failed" : "Authentication Failed",
-          description: error.message || "An unexpected error occurred.",
+          description: description,
           variant: "destructive",
         });
       }
