@@ -204,7 +204,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                   target="_blank" 
                   rel="noopener noreferrer" 
                   onClick={(e) => e.stopPropagation()}
-                  className={cn("absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 border-none text-white inline-flex items-center justify-center rounded-md text-sm font-medium", "hover:bg-accent hover:text-accent-foreground")}
+                  className={cn("absolute top-2 right-2 h-8 w-8 opacity-0 group-hover/media:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 text-white inline-flex items-center justify-center rounded-md text-sm font-medium", "hover:text-accent-foreground")}
                   aria-label="Download image"
                 >
                   <Download className="h-4 w-4" />
@@ -231,10 +231,10 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       
       if (message.mediaType === 'file') {
         return mediaAndTextLayout(
-          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-background/50 p-3 rounded-lg w-full">
-            <FileText className="h-6 w-6 text-foreground flex-shrink-0" />
+          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-card-foreground/5 p-3 rounded-lg w-full transition-colors">
+            <FileText className="h-8 w-8 text-foreground flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground break-words">{message.fileName}</p>
+              <p className="font-medium text-foreground break-all">{message.fileName}</p>
               {typeof message.fileSize === 'number' && <p className="text-xs text-muted-foreground">{formatFileSize(message.fileSize)}</p>}
             </div>
             <Download className="h-5 w-5 text-muted-foreground" />
@@ -307,13 +307,13 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 size="icon"
                 className={cn(
                     "absolute -top-4 h-7 w-7 rounded-full transition-opacity opacity-0 group-hover:opacity-100 bg-background z-10",
-                    isCurrentUser ? "right-0" : "left-0"
+                    isCurrentUser ? "left-0" : "right-0"
                 )}
             >
                 <SmilePlus className="h-4 w-4" />
             </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-1 rounded-full mb-1" side="top" align={isCurrentUser ? "end" : "start"}>
+        <PopoverContent className="w-auto p-1 rounded-full mb-1" side="top" align={isCurrentUser ? "start" : "end"}>
             <div className="flex gap-1">
                 {EMOJIS.map(emoji => (
                     <Button
@@ -335,9 +335,9 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
   if (isCurrentUser) {
     return (
-      <div className="flex justify-end items-end gap-2.5 group">
-        <div className="flex flex-col items-end gap-1 max-w-[70%]">
-            <div className="relative">
+      <div className="flex justify-end items-start gap-2.5 group">
+        <div className="flex flex-col items-end gap-1 max-w-[85%]">
+             <div className="relative">
                 <div className={cn("bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl break-words", bubblePaddingBottom)}>
                     <MessageContent />
                 </div>
@@ -355,12 +355,12 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   }
 
   return (
-    <div className="flex items-end gap-2.5 group">
+    <div className="flex items-start gap-2.5 group">
       <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
         <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
       </Avatar>
-      <div className="flex flex-col items-start gap-1 max-w-[70%]">
+      <div className="flex flex-col items-start gap-1 max-w-[85%]">
         <span className="font-semibold text-sm ml-3">{sender.username}</span>
          <div className="relative">
             <div className={cn("bg-card p-3 rounded-t-xl rounded-br-xl break-words", bubblePaddingBottom)}>
@@ -374,5 +374,3 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     </div>
   );
 }
-
-    
