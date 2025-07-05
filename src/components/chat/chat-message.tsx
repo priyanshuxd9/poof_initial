@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -108,8 +109,8 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   };
 
   const linkifyText = (text: string) => {
-    const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
     if (!text) return text;
+    const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
     
     const matches = [...text.matchAll(urlRegex)];
 
@@ -157,7 +158,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   if (!sender) {
     return (
       <div className="flex items-start gap-3">
-        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton className="h-8 w-8 rounded-full" />
         <div className="space-y-2">
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-6 w-48" />
@@ -178,7 +179,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
           {mediaElement}
         </div>
         {message.text && (
-          <p className={cn("whitespace-pre-wrap break-words")}>{linkifyText(message.text)}</p>
+          <p className="whitespace-pre-wrap break-words">{linkifyText(message.text)}</p>
         )}
       </>
     );
@@ -243,7 +244,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     }
     
     // Fallback for text-only messages
-    return message.text ? <p className={cn("whitespace-pre-wrap break-words")}>{linkifyText(message.text)}</p> : null;
+    return message.text ? <p className="whitespace-pre-wrap break-words">{linkifyText(message.text)}</p> : null;
   };
 
   const TimestampDisplay = () => (
@@ -265,7 +266,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     <>
       {validReactions.length > 0 && (
            <div className={cn(
-               "absolute -bottom-3 flex items-center gap-1.5 flex-wrap",
+               "absolute -bottom-4 flex items-center gap-1.5 flex-wrap z-10",
                isCurrentUser ? "right-2" : "left-2"
            )}>
               {validReactions.map(([emoji, uids]) => {
@@ -305,7 +306,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 variant="ghost"
                 size="icon"
                 className={cn(
-                    "absolute -top-4 h-7 w-7 rounded-full transition-opacity opacity-0 group-hover:opacity-100 bg-background",
+                    "absolute -top-4 h-7 w-7 rounded-full transition-opacity opacity-0 group-hover:opacity-100 bg-background z-10",
                     isCurrentUser ? "right-0" : "left-0"
                 )}
             >
@@ -330,46 +331,45 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     </Popover>
   );
 
-  const bubblePaddingBottom = validReactions.length > 0 ? "pb-4" : "";
+  const bubblePaddingBottom = validReactions.length > 0 ? "pb-5" : "";
 
   if (isCurrentUser) {
     return (
-      <div className="flex items-start justify-end gap-3 group">
-        <div className="flex flex-col items-end max-w-[85%]">
-            <div className="flex items-center gap-3">
-                <TimestampDisplay/>
-                <span className="font-semibold text-sm">{sender.username}</span>
+      <div className="flex justify-end items-end gap-2.5 group">
+        <div className="flex flex-col items-end gap-1 max-w-[75%]">
+            <div className="relative">
+                <div className={cn("bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl", bubblePaddingBottom)}>
+                    <MessageContent />
+                </div>
+                <ReactionPopover />
+                <Reactions />
             </div>
-            <div className={cn("relative mt-1 bg-primary text-primary-foreground p-3 rounded-lg rounded-br-none shadow-sm", bubblePaddingBottom)}>
-                <MessageContent/>
-                <ReactionPopover/>
-                <Reactions/>
-            </div>
+            <TimestampDisplay />
         </div>
-        <Avatar className="h-10 w-10 flex-shrink-0">
+        <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
-          <AvatarFallback className="bg-primary-foreground text-primary">{getInitials(sender.username)}</AvatarFallback>
+          <AvatarFallback className="bg-primary-foreground text-primary text-xs">{getInitials(sender.username)}</AvatarFallback>
         </Avatar>
       </div>
     );
   }
 
   return (
-    <div className="flex items-start gap-3 group">
-      <Avatar className="h-10 w-10 flex-shrink-0">
+    <div className="flex items-end gap-2.5 group">
+      <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
-        <AvatarFallback className="bg-secondary text-secondary-foreground">{getInitials(sender.username)}</AvatarFallback>
+        <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
       </Avatar>
-      <div className="flex flex-col items-start max-w-[85%]">
-        <div className="flex items-center gap-3">
-          <span className="font-semibold text-sm">{sender.username}</span>
-          <TimestampDisplay />
-        </div>
-        <div className={cn("relative mt-1 bg-card border p-3 rounded-lg rounded-bl-none shadow-sm", bubblePaddingBottom)}>
-          <MessageContent/>
-          <ReactionPopover/>
-          <Reactions/>
-        </div>
+      <div className="flex flex-col items-start gap-1 max-w-[75%]">
+        <span className="font-semibold text-sm ml-3">{sender.username}</span>
+         <div className="relative">
+            <div className={cn("bg-card border p-3 rounded-t-xl rounded-br-xl", bubblePaddingBottom)}>
+               <MessageContent />
+            </div>
+            <ReactionPopover />
+            <Reactions />
+         </div>
+        <TimestampDisplay />
       </div>
     </div>
   );
