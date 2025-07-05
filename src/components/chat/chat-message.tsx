@@ -231,13 +231,13 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       
       if (message.mediaType === 'file') {
         return mediaAndTextLayout(
-          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-card-foreground/5 p-3 rounded-lg w-full transition-colors">
-            <FileText className="h-8 w-8 text-foreground flex-shrink-0" />
+          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full">
+            <FileText className="h-8 w-8 text-current flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground break-all">{message.fileName}</p>
-              {typeof message.fileSize === 'number' && <p className="text-xs text-muted-foreground">{formatFileSize(message.fileSize)}</p>}
+              <p className="font-medium break-all">{message.fileName}</p>
+              {typeof message.fileSize === 'number' && <p className="text-xs text-current opacity-70">{formatFileSize(message.fileSize)}</p>}
             </div>
-            <Download className="h-5 w-5 text-muted-foreground" />
+            <Download className="h-5 w-5 text-current opacity-70" />
           </a>
         );
       }
@@ -363,7 +363,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       <div className="flex flex-col items-start gap-1 max-w-[85%]">
         <span className="font-semibold text-sm ml-3">{sender.username}</span>
          <div className="relative">
-            <div className={cn("bg-card p-3 rounded-t-xl rounded-br-xl break-words", bubblePaddingBottom)}>
+            <div className={cn("bg-card text-card-foreground p-3 rounded-t-xl rounded-br-xl break-words", bubblePaddingBottom)}>
                <MessageContent />
             </div>
             <ReactionPopover />
