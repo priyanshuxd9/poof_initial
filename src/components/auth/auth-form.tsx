@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 
 const signInSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -36,21 +37,34 @@ const resetPasswordSchema = z.object({
     email: z.string().email({ message: "Invalid email address." }),
 });
 
+const magicLinkSchema = z.object({
+    email: z.string().email({ message: "Invalid email address." }),
+});
+
+
 const formSchemas = {
     signIn: signInSchema,
     signUp: signUpSchema,
     resetPassword: resetPasswordSchema,
+    magicLink: magicLinkSchema,
+    magicLinkSent: magicLinkSchema, // No validation needed, but keeps type consistency
 };
 
-type AuthMode = "signIn" | "signUp" | "resetPassword";
+type AuthMode = "signIn" | "signUp" | "resetPassword" | "magicLink" | "magicLinkSent";
 
 export function AuthForm() {
   const [mode, setMode] = useState<AuthMode>("signIn");
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
-  const { signIn, signUp, sendPasswordReset } = useAuth();
+  const { signIn, signUp, sendPasswordReset, sendSignInLink, checkAndSignInWithMagicLink, isProcessingMagicLink } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+
+  // Effect to handle the magic link when the user clicks it and returns to the app
+  useEffect(() => {
+    checkAndSignInWithMagicLink();
+  }, [checkAndSignInWithMagicLink]);
+
 
   const formSchema = formSchemas[mode];
   type FormValues = z.infer<typeof formSchema>;
@@ -81,6 +95,9 @@ export function AuthForm() {
             await sendPasswordReset(values.email);
             toast({ title: "Password Reset Email Sent", description: "Please check your inbox for instructions." });
             setMode("signIn");
+        } else if (mode === "magicLink") {
+            await sendSignInLink(values.email);
+            setMode("magicLinkSent");
         }
       } catch (error: any) {
         let description = "An unexpected error occurred. Please try again.";
@@ -97,6 +114,7 @@ export function AuthForm() {
                     break;
                 case 'auth/user-not-found':
                 case 'auth/wrong-password':
+                case 'auth/invalid-credential':
                      description = "Invalid email or password. Please try again.";
                      break;
                 case 'auth/missing-or-insufficient-permissions':
@@ -110,7 +128,7 @@ export function AuthForm() {
         }
         
         toast({
-          title: mode === "resetPassword" ? "Reset Failed" : "Authentication Failed",
+          title: mode === "resetPassword" ? "Reset Failed" : mode === 'magicLink' ? "Failed to Send" : "Authentication Failed",
           description: description,
           variant: "destructive",
         });
@@ -118,11 +136,46 @@ export function AuthForm() {
     });
   };
 
+  if (isProcessingMagicLink) {
+    return (
+        <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <h2 className="text-xl font-semibold">Verifying your link...</h2>
+            <p className="text-muted-foreground">Please wait while we sign you in.</p>
+        </div>
+    );
+  }
+
+  if (mode === 'magicLinkSent') {
+    return (
+        <div className="text-center space-y-6">
+             <Alert>
+                <Mail className="h-4 w-4" />
+                <AlertTitle className="font-bold">Check your email!</AlertTitle>
+                <AlertDescription>
+                   We've sent a magic sign-in link to <span className="font-semibold">{form.getValues("email")}</span>. Click the link to sign in.
+                </AlertDescription>
+            </Alert>
+            <Button
+                variant="link"
+                onClick={() => {
+                    setMode("signIn");
+                    form.reset();
+                }}
+            >
+                Back to Sign In
+            </Button>
+        </div>
+    )
+  }
+
+
   const getTitle = () => {
     switch (mode) {
         case "signIn": return "Sign In to Poof";
         case "signUp": return "Create your Account";
         case "resetPassword": return "Reset Password";
+        case "magicLink": return "Sign in with Magic Link";
     }
   }
   
@@ -131,6 +184,7 @@ export function AuthForm() {
         case "signIn": return "Sign In";
         case "signUp": return "Sign Up";
         case "resetPassword": return "Send Reset Link";
+        case "magicLink": return "Send Magic Link";
     }
   }
 
@@ -156,20 +210,24 @@ export function AuthForm() {
             )}
           />
         )}
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="you@example.com" {...field} disabled={isPending}/>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {mode !== 'resetPassword' && (
+        
+        {mode !== 'magicLinkSent' && (
+            <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                    <Input placeholder="you@example.com" {...field} disabled={isPending}/>
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+        )}
+        
+        {mode !== 'resetPassword' && mode !== 'magicLink' && mode !== 'magicLinkSent' && (
           <FormField
             control={form.control}
             name="password"
@@ -215,25 +273,62 @@ export function AuthForm() {
           />
         )}
 
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {getButtonText()}
-        </Button>
+        <div className="space-y-4">
+            <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {getButtonText()}
+            </Button>
 
-        <p className="text-sm text-center text-muted-foreground">
-          {mode === 'signIn' && "Don't have an account?"}
-          {mode === 'signUp' && "Already have an account?"}
-          {mode === 'resetPassword' && "Remember your password?"}{" "}
-          <Button
-            variant="link"
-            type="button"
-            onClick={() => setMode(mode === 'signUp' || mode === 'resetPassword' ? "signIn" : "signUp")}
-            className="p-0 h-auto font-semibold"
-            disabled={isPending}
-          >
-            {mode === 'signUp' || mode === 'resetPassword' ? "Sign In" : "Sign Up"}
-          </Button>
-        </p>
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">
+                    OR
+                    </span>
+                </div>
+            </div>
+
+            {mode === 'signIn' && (
+                 <Button type="button" variant="secondary" className="w-full" onClick={() => setMode('magicLink')} disabled={isPending}>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Sign in with Magic Link
+                </Button>
+            )}
+
+            {(mode === 'signUp' || mode === 'resetPassword' || mode === 'magicLink') && (
+                <p className="text-sm text-center text-muted-foreground">
+                {mode === 'signUp' && "Already have an account?"}
+                {mode === 'resetPassword' && "Remember your password?"}
+                {mode === 'magicLink' && "Want to use a password?"}{" "}
+                <Button
+                    variant="link"
+                    type="button"
+                    onClick={() => setMode("signIn")}
+                    className="p-0 h-auto font-semibold"
+                    disabled={isPending}
+                >
+                    Sign In
+                </Button>
+                </p>
+            )}
+
+            {mode === 'signIn' && (
+                <p className="text-sm text-center text-muted-foreground">
+                    Don't have an account?{" "}
+                    <Button
+                        variant="link"
+                        type="button"
+                        onClick={() => setMode("signUp")}
+                        className="p-0 h-auto font-semibold"
+                        disabled={isPending}
+                    >
+                        Sign Up
+                    </Button>
+                </p>
+            )}
+        </div>
       </form>
     </Form>
   );
