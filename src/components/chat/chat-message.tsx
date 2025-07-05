@@ -193,9 +193,9 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
-                  width={250}
-                  height={250}
-                  className="rounded-lg object-cover max-h-[250px] w-auto cursor-pointer"
+                  width={300}
+                  height={300}
+                  className="rounded-lg object-cover w-auto cursor-pointer max-h-[200px] sm:max-h-[280px]"
                   unoptimized
                 />
                 <a 
@@ -231,13 +231,13 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       
       if (message.mediaType === 'file') {
         return mediaAndTextLayout(
-          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full">
-            <FileText className="h-8 w-8 text-current flex-shrink-0" />
+          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full text-current no-underline">
+            <FileText className="h-8 w-8 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-medium break-all">{message.fileName}</p>
-              {typeof message.fileSize === 'number' && <p className="text-xs text-current opacity-70">{formatFileSize(message.fileSize)}</p>}
+              {typeof message.fileSize === 'number' && <p className="text-xs opacity-70">{formatFileSize(message.fileSize)}</p>}
             </div>
-            <Download className="h-5 w-5 text-current opacity-70" />
+            <Download className="h-5 w-5 opacity-70" />
           </a>
         );
       }
@@ -335,10 +335,10 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
   if (isCurrentUser) {
     return (
-      <div className="flex justify-end items-start gap-2.5 group">
+      <div className="flex justify-end items-end gap-2.5 group">
         <div className="flex flex-col items-end gap-1 max-w-[85%]">
              <div className="relative">
-                <div className={cn("bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl break-words", bubblePaddingBottom)}>
+                <div className={cn("bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl", bubblePaddingBottom)}>
                     <MessageContent />
                 </div>
                 <ReactionPopover />
@@ -355,7 +355,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   }
 
   return (
-    <div className="flex items-start gap-2.5 group">
+    <div className="flex items-end gap-2.5 group">
       <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
         <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
@@ -363,7 +363,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       <div className="flex flex-col items-start gap-1 max-w-[85%]">
         <span className="font-semibold text-sm ml-3">{sender.username}</span>
          <div className="relative">
-            <div className={cn("bg-card text-card-foreground p-3 rounded-t-xl rounded-br-xl break-words", bubblePaddingBottom)}>
+            <div className={cn("bg-card text-card-foreground p-3 rounded-t-xl rounded-br-xl", bubblePaddingBottom)}>
                <MessageContent />
             </div>
             <ReactionPopover />
