@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +35,7 @@ export function MessageList({ groupId, members }: MessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLength = useRef(0);
 
   // Create a map of members for quick lookup
   const membersMap = new Map(members.map(member => [member.uid, member]));
@@ -62,13 +64,18 @@ export function MessageList({ groupId, members }: MessageListProps) {
     return () => unsubscribe();
   }, [groupId]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom, but only when new messages are added
   useEffect(() => {
-    setTimeout(() => {
-      if (viewportRef.current) {
-          viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
-      }
-    }, 100); // A small delay to allow the DOM to update
+    // Only scroll if the number of messages has increased
+    if (messages.length > prevMessagesLength.current) {
+        setTimeout(() => {
+            if (viewportRef.current) {
+                viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+            }
+        }, 100); // A small delay to allow the DOM to update
+    }
+    // Update the ref for the next comparison
+    prevMessagesLength.current = messages.length;
   }, [messages]);
 
 
