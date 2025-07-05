@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -179,7 +178,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
           {mediaElement}
         </div>
         {message.text && (
-          <p className={cn("whitespace-pre-wrap break-words", isCurrentUser ? 'text-right' : 'text-left')}>{linkifyText(message.text)}</p>
+          <p className={cn("whitespace-pre-wrap break-words")}>{linkifyText(message.text)}</p>
         )}
       </>
     );
@@ -244,17 +243,14 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     }
     
     // Fallback for text-only messages
-    return message.text ? <p className={cn("whitespace-pre-wrap break-words", isCurrentUser ? 'text-right' : 'text-left')}>{linkifyText(message.text)}</p> : null;
+    return message.text ? <p className={cn("whitespace-pre-wrap break-words")}>{linkifyText(message.text)}</p> : null;
   };
 
   const TimestampDisplay = () => (
     <TooltipProvider delayDuration={100}>
         <Tooltip>
             <TooltipTrigger asChild>
-                <div className={cn(
-                    "text-xs cursor-default flex-shrink-0",
-                    isCurrentUser ? "text-primary-foreground/80" : "text-muted-foreground"
-                )}>
+                <div className="text-xs text-muted-foreground cursor-default flex-shrink-0">
                     {messageDate ? format(messageDate, "p") : ""}
                 </div>
             </TooltipTrigger>
@@ -269,8 +265,8 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     <>
       {validReactions.length > 0 && (
            <div className={cn(
-               "flex items-center gap-1.5 flex-wrap",
-               isCurrentUser ? "justify-end" : "justify-start"
+               "absolute -bottom-3 flex items-center gap-1.5 flex-wrap",
+               isCurrentUser ? "right-2" : "left-2"
            )}>
               {validReactions.map(([emoji, uids]) => {
                 const currentUserReacted = user ? uids.includes(user.uid) : false;
@@ -283,7 +279,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                         <Button 
                             variant={currentUserReacted ? "default" : "secondary"}
                             size="sm"
-                            className="h-auto px-2 py-0.5 rounded-full border"
+                            className="h-auto px-2 py-0.5 rounded-full border shadow-sm"
                             onClick={() => handleReaction(emoji)}
                         >
                             <span className="text-sm mr-1">{emoji}</span>
@@ -309,14 +305,14 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 variant="ghost"
                 size="icon"
                 className={cn(
-                    "h-7 w-7 rounded-full transition-opacity opacity-0 group-hover:opacity-100",
-                    isCurrentUser ? "bg-black/10 hover:bg-black/20" : "bg-muted hover:bg-muted/80"
+                    "absolute -top-4 h-7 w-7 rounded-full transition-opacity opacity-0 group-hover:opacity-100 bg-background",
+                    isCurrentUser ? "right-0" : "left-0"
                 )}
             >
                 <SmilePlus className="h-4 w-4" />
             </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-1 rounded-full mb-2" side="top" align={isCurrentUser ? "end" : "start"}>
+        <PopoverContent className="w-auto p-1 rounded-full mb-1" side="top" align={isCurrentUser ? "end" : "start"}>
             <div className="flex gap-1">
                 {EMOJIS.map(emoji => (
                     <Button
@@ -334,67 +330,47 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     </Popover>
   );
 
+  const bubblePaddingBottom = validReactions.length > 0 ? "pb-4" : "";
+
   if (isCurrentUser) {
     return (
-      <div className="flex w-full justify-end group">
-        <div className="relative flex flex-col p-3 rounded-xl max-w-[85%] sm:max-w-md bg-primary text-primary-foreground rounded-br-none shadow-sm">
-            {/* Header */}
-            <div className="flex items-center gap-3 flex-row-reverse">
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
-                    <AvatarFallback className="bg-primary-foreground text-primary">{getInitials(sender.username)}</AvatarFallback>
-                </Avatar>
-                <span className="font-semibold text-sm">{sender.username}</span>
-                <div className="flex-grow"/>
+      <div className="flex items-start justify-end gap-3 group">
+        <div className="flex flex-col items-end max-w-[85%]">
+            <div className="flex items-center gap-3">
                 <TimestampDisplay/>
+                <span className="font-semibold text-sm">{sender.username}</span>
             </div>
-            {/* Content */}
-            {(message.text || message.mediaUrl) && (
-              <div className="mr-11 mt-2 text-base break-words">
-                  <MessageContent/>
-              </div>
-            )}
-            {/* Reactions */}
-            <div className="mr-11 mt-1 flex items-end gap-2">
+            <div className={cn("relative mt-1 bg-primary text-primary-foreground p-3 rounded-lg rounded-br-none shadow-sm", bubblePaddingBottom)}>
+                <MessageContent/>
                 <ReactionPopover/>
-                <div className="flex-grow">
-                    <Reactions/>
-                </div>
+                <Reactions/>
             </div>
         </div>
+        <Avatar className="h-10 w-10 flex-shrink-0">
+          <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
+          <AvatarFallback className="bg-primary-foreground text-primary">{getInitials(sender.username)}</AvatarFallback>
+        </Avatar>
       </div>
     );
   }
 
   return (
-    <div className="flex w-full justify-start group">
-        <div className="relative flex flex-col p-3 rounded-xl max-w-[85%] sm:max-w-md bg-card border rounded-bl-none shadow-sm">
-            {/* Header */}
-            <div className="flex items-center gap-3">
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
-                    <AvatarFallback className="bg-secondary text-secondary-foreground">{getInitials(sender.username)}</AvatarFallback>
-                </Avatar>
-                <span className="font-semibold text-sm">{sender.username}</span>
-                <div className="flex-grow"/>
-                <TimestampDisplay/>
-            </div>
-            {/* Content */}
-            {(message.text || message.mediaUrl) && (
-              <div className="ml-11 mt-2 text-base break-words">
-                  <MessageContent/>
-              </div>
-            )}
-            {/* Reactions */}
-            <div className="ml-11 mt-1 flex items-end gap-2">
-                <div className="flex-grow">
-                  <Reactions/>
-                </div>
-                <ReactionPopover/>
-            </div>
+    <div className="flex items-start gap-3 group">
+      <Avatar className="h-10 w-10 flex-shrink-0">
+        <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
+        <AvatarFallback className="bg-secondary text-secondary-foreground">{getInitials(sender.username)}</AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col items-start max-w-[85%]">
+        <div className="flex items-center gap-3">
+          <span className="font-semibold text-sm">{sender.username}</span>
+          <TimestampDisplay />
         </div>
+        <div className={cn("relative mt-1 bg-card border p-3 rounded-lg rounded-bl-none shadow-sm", bubblePaddingBottom)}>
+          <MessageContent/>
+          <ReactionPopover/>
+          <Reactions/>
+        </div>
+      </div>
     </div>
   );
 }
-
-    
