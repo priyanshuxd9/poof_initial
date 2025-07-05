@@ -137,7 +137,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:opacity-80"
+          className="underline hover:opacity-80 break-all"
           onClick={(e) => e.stopPropagation()} // Prevent popover trigger
         >
           {url}
@@ -367,7 +367,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
        {!isCurrentUser && <TimestampDisplay />}
 
        {isCurrentUser && (
-        <Avatar className="h-8 w-8 self-start flex-shrink-0">
+        <Avatar className="h-8 w-8 self-end flex-shrink-0">
           <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
           <AvatarFallback>{getInitials(sender.username)}</AvatarFallback>
         </Avatar>
