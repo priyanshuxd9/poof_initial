@@ -171,6 +171,40 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     ([, uids]) => uids && uids.length > 0
   );
 
+  const Reactions = () => (
+    <>
+      {validReactions.length > 0 && (
+           <div className="flex items-center gap-1.5 flex-wrap pt-2 -mb-1">
+              {validReactions.map(([emoji, uids]) => {
+                const currentUserReacted = user ? uids.includes(user.uid) : false;
+                const reactedUsernames = uids.map(uid => membersMap.get(uid)?.username || '...').join('\n');
+                
+                return (
+                  <TooltipProvider key={emoji} delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                            variant={currentUserReacted ? "default" : "secondary"}
+                            size="sm"
+                            className="h-auto px-2 py-0.5 rounded-full border shadow-sm"
+                            onClick={() => handleReaction(emoji)}
+                        >
+                            <span className="text-sm mr-1">{emoji}</span>
+                            <span className="text-xs font-semibold">{uids.length}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="p-2">
+                          <div className="text-sm text-center font-medium whitespace-pre-wrap">{reactedUsernames} reacted with {emoji}</div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
+              })}
+           </div>
+      )}
+    </>
+  );
+
   const MessageContent = () => {
     // This helper function handles laying out media with optional text below it.
     const mediaAndTextLayout = (mediaElement: React.ReactNode) => (
@@ -189,13 +223,13 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         return mediaAndTextLayout(
           <Dialog>
             <DialogTrigger asChild>
-              <button className="relative group/media w-fit text-left">
+              <div className="relative group/media w-fit text-left rounded-lg overflow-hidden cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
                   width={300}
                   height={300}
-                  className="rounded-lg object-cover w-auto cursor-pointer max-h-[200px] sm:max-h-[280px]"
+                  className="object-cover w-auto max-h-[200px] sm:max-h-[280px]"
                   unoptimized
                 />
                 <a 
@@ -209,7 +243,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 >
                   <Download className="h-4 w-4" />
                 </a>
-              </button>
+              </div>
             </DialogTrigger>
             <DialogContent className="w-screen h-screen max-w-full max-h-full p-2 sm:p-4 bg-black/80 border-none flex items-center justify-center">
               <DialogHeader className="sr-only">
@@ -261,43 +295,6 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         </Tooltip>
     </TooltipProvider>
   );
-  
-  const Reactions = () => (
-    <>
-      {validReactions.length > 0 && (
-           <div className={cn(
-               "absolute -bottom-4 flex items-center gap-1.5 flex-wrap z-10",
-               isCurrentUser ? "right-2" : "left-2"
-           )}>
-              {validReactions.map(([emoji, uids]) => {
-                const currentUserReacted = user ? uids.includes(user.uid) : false;
-                const reactedUsernames = uids.map(uid => membersMap.get(uid)?.username || '...').join('\n');
-                
-                return (
-                  <TooltipProvider key={emoji} delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                            variant={currentUserReacted ? "default" : "secondary"}
-                            size="sm"
-                            className="h-auto px-2 py-0.5 rounded-full border shadow-sm"
-                            onClick={() => handleReaction(emoji)}
-                        >
-                            <span className="text-sm mr-1">{emoji}</span>
-                            <span className="text-xs font-semibold">{uids.length}</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="p-2">
-                          <div className="text-sm text-center font-medium whitespace-pre-wrap">{reactedUsernames} reacted with {emoji}</div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )
-              })}
-           </div>
-      )}
-    </>
-  );
 
   const ReactionPopover = () => (
     <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -331,18 +328,17 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     </Popover>
   );
 
-  const bubblePaddingBottom = validReactions.length > 0 ? "pb-5" : "";
 
   if (isCurrentUser) {
     return (
-      <div className="flex justify-end items-end gap-2.5 group">
-        <div className="flex flex-col items-end gap-1 max-w-[85%]">
-             <div className="relative">
-                <div className={cn("bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl", bubblePaddingBottom)}>
+      <div className="flex justify-end items-start gap-2.5 group max-w-[85%]">
+        <div className="flex flex-col items-end gap-1">
+            <div className="relative">
+                <div className="bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl">
                     <MessageContent />
+                    <Reactions />
                 </div>
                 <ReactionPopover />
-                <Reactions />
             </div>
             <TimestampDisplay />
         </div>
@@ -355,19 +351,19 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   }
 
   return (
-    <div className="flex items-end gap-2.5 group">
+    <div className="flex items-start gap-2.5 group max-w-[85%]">
       <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
         <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
       </Avatar>
-      <div className="flex flex-col items-start gap-1 max-w-[85%]">
+      <div className="flex flex-col items-start gap-1">
         <span className="font-semibold text-sm ml-3">{sender.username}</span>
          <div className="relative">
-            <div className={cn("bg-card text-card-foreground p-3 rounded-t-xl rounded-br-xl", bubblePaddingBottom)}>
+            <div className="bg-card text-card-foreground p-3 rounded-t-xl rounded-br-xl">
                <MessageContent />
+               <Reactions />
             </div>
             <ReactionPopover />
-            <Reactions />
          </div>
         <TimestampDisplay />
       </div>
