@@ -195,7 +195,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                   alt={message.fileName || "Shared image"}
                   width={250}
                   height={250}
-                  className="rounded-lg object-cover max-h-[250px] w-auto cursor-pointer hover:brightness-90 transition-all"
+                  className="rounded-lg object-cover max-h-[250px] w-auto cursor-pointer transition-all"
                   unoptimized
                 />
                 <a 
@@ -231,7 +231,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       
       if (message.mediaType === 'file') {
         return mediaAndTextLayout(
-          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-background/50 p-3 rounded-lg hover:bg-background/80 transition-colors w-full">
+          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-background/50 p-3 rounded-lg transition-colors w-full">
             <FileText className="h-6 w-6 text-foreground flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-medium text-foreground truncate">{message.fileName}</p>
@@ -336,9 +336,9 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   if (isCurrentUser) {
     return (
       <div className="flex justify-end items-end gap-2.5 group">
-        <div className="flex flex-col items-end gap-1 max-w-[75%]">
+        <div className="flex flex-col items-end gap-1 max-w-[65%]">
             <div className="relative">
-                <div className={cn("bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl", bubblePaddingBottom)}>
+                <div className={cn("bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl break-words", bubblePaddingBottom)}>
                     <MessageContent />
                 </div>
                 <ReactionPopover />
@@ -360,10 +360,10 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
         <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
       </Avatar>
-      <div className="flex flex-col items-start gap-1 max-w-[75%]">
+      <div className="flex flex-col items-start gap-1 max-w-[65%]">
         <span className="font-semibold text-sm ml-3">{sender.username}</span>
          <div className="relative">
-            <div className={cn("bg-card border p-3 rounded-t-xl rounded-br-xl", bubblePaddingBottom)}>
+            <div className={cn("bg-card border p-3 rounded-t-xl rounded-br-xl break-words", bubblePaddingBottom)}>
                <MessageContent />
             </div>
             <ReactionPopover />
