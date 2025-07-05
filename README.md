@@ -92,9 +92,10 @@ Before running the app, you need to set up a Firebase project:
 2.  In the project dashboard, go to the **Build** section in the left sidebar.
 3.  **Authentication**:
     -   Enable Authentication.
-    -   On the "Sign-in method" tab, click **Add new provider** and select **Email/Password**.
+    -   On the **Sign-in method** tab, click **Add new provider** and select **Email/Password**.
     -   Enable the **Email/Password** provider toggle.
     -   Crucially, also enable the **Email link (passwordless sign-in)** toggle within the same provider section.
+    -   Go to the **Settings** tab. Under **Authorized domains**, click **Add domain** and ensure the domain your app is running on is listed (e.g., `localhost` for local development, or your app's live domain). **This is required for Magic Link sign-in to work.**
     -   Save the changes.
 4.  **Firestore Database**:
     -   Create a new Firestore database.
