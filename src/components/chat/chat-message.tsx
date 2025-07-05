@@ -193,9 +193,9 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
-                  width={38}
-                  height={38}
-                  className="rounded-lg object-cover max-h-[50px] w-auto cursor-pointer hover:brightness-90 transition-all"
+                  width={250}
+                  height={250}
+                  className="rounded-lg object-cover max-h-[250px] w-auto cursor-pointer hover:brightness-90 transition-all"
                   unoptimized
                 />
                 <a 
@@ -252,7 +252,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     <TooltipProvider delayDuration={100}>
         <Tooltip>
             <TooltipTrigger asChild>
-                <div className="text-xs text-muted-foreground cursor-default pb-1 px-1">
+                <div className="text-xs text-muted-foreground cursor-default pb-1 px-1 flex-shrink-0">
                     {messageDate ? format(messageDate, "p") : ""}
                 </div>
             </TooltipTrigger>
@@ -266,10 +266,12 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   return (
     <div
       className={cn(
-        "flex items-end gap-2 group",
-        isCurrentUser ? "justify-end" : "justify-start"
+        "flex w-full items-end gap-2 group",
+        !isCurrentUser && "justify-start"
       )}
     >
+      {isCurrentUser && <div className="flex-grow" />}
+      
       {!isCurrentUser && (
         <Avatar className="h-8 w-8 self-start flex-shrink-0">
           <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
@@ -281,16 +283,17 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     
       <div className={cn(
         "flex flex-col min-w-0",
-        isCurrentUser ? "max-w-[75%]" : "max-w-[calc(100%-4rem)]"
+        isCurrentUser ? "items-end" : "items-start"
       )}>
         <div
           className={cn(
-            "relative flex flex-col rounded-xl px-3 py-2 break-words",
+            "relative flex flex-col rounded-xl px-3 py-2",
             isCurrentUser
               ? "bg-primary text-primary-foreground rounded-br-none"
               : "bg-muted text-foreground rounded-bl-none",
             !message.text && message.mediaUrl && message.mediaType !== 'file' ? "p-1 bg-transparent" : "",
-            message.mediaType === 'file' ? 'p-0 bg-transparent' : ''
+            message.mediaType === 'file' ? 'p-0 bg-transparent' : '',
+            "break-words" // Force word wrapping inside the bubble
           )}
         >
           {!isCurrentUser && message.mediaType !== 'file' && (
