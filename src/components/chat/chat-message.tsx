@@ -174,7 +174,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   const Reactions = () => (
     <>
       {validReactions.length > 0 && (
-           <div className="flex items-center gap-1.5 flex-wrap pt-2 -mb-1">
+           <div className="flex items-center gap-1.5 flex-wrap pt-2">
               {validReactions.map(([emoji, uids]) => {
                 const currentUserReacted = user ? uids.includes(user.uid) : false;
                 const reactedUsernames = uids.map(uid => membersMap.get(uid)?.username || '...').join('\n');
@@ -186,7 +186,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                         <Button 
                             variant={currentUserReacted ? "default" : "secondary"}
                             size="sm"
-                            className="h-auto px-2 py-0.5 rounded-full border shadow-sm"
+                            className="h-auto px-2 py-0.5 rounded-full shadow-sm"
                             onClick={() => handleReaction(emoji)}
                         >
                             <span className="text-sm mr-1">{emoji}</span>
@@ -209,7 +209,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
     // This helper function handles laying out media with optional text below it.
     const mediaAndTextLayout = (mediaElement: React.ReactNode) => (
       <>
-        <div className={cn(isCurrentUser ? 'flex justify-end' : '')} style={{ marginBottom: message.text ? '0.5rem' : 0 }}>
+        <div style={{ marginBottom: message.text ? '0.5rem' : 0 }}>
           {mediaElement}
         </div>
         {message.text && (
@@ -223,7 +223,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         return mediaAndTextLayout(
           <Dialog>
             <DialogTrigger asChild>
-              <div className="relative group/media w-fit text-left overflow-hidden rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+              <div className="relative group/media w-fit overflow-hidden rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
@@ -265,14 +265,18 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       
       if (message.mediaType === 'file') {
         return mediaAndTextLayout(
-          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full no-underline text-current">
-            <FileText className="h-8 w-8 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium break-all">{message.fileName}</p>
-              {typeof message.fileSize === 'number' && <p className="text-xs opacity-70">{formatFileSize(message.fileSize)}</p>}
-            </div>
-            <Download className="h-5 w-5 opacity-70" />
-          </a>
+            <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-2 rounded-lg w-full no-underline text-current">
+              <div className="relative group/file flex-shrink-0">
+                <FileText className="h-10 w-10" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-md opacity-0 group-hover/file:opacity-100 transition-opacity cursor-pointer">
+                  <Download className="h-5 w-5 text-white" />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium break-all">{message.fileName}</p>
+                {typeof message.fileSize === 'number' && <p className="text-xs opacity-70">{formatFileSize(message.fileSize)}</p>}
+              </div>
+            </a>
         );
       }
     }
@@ -331,14 +335,10 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
   if (isCurrentUser) {
     return (
-      <div className="flex items-start justify-end group">
-        <div className="flex flex-col items-end">
-          <div className="relative mr-2.5">
-            <div
-              className={cn(
-                "bg-primary text-primary-foreground p-3 rounded-l-xl rounded-tr-xl",
-              )}
-            >
+      <div className="flex items-end justify-end group">
+        <div className="flex flex-col items-end max-w-[75%] mr-2.5">
+          <div className="relative">
+            <div className="bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl">
               <MessageContent />
               <Reactions />
             </div>
@@ -360,10 +360,10 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
         <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
       </Avatar>
-      <div className="flex flex-col items-start">
+      <div className="flex flex-col items-start max-w-[75%]">
         <span className="font-semibold text-sm ml-3">{sender.username}</span>
          <div className="relative">
-            <div className="bg-card text-card-foreground p-3 rounded-r-xl rounded-tl-xl">
+            <div className="bg-card text-card-foreground p-3 rounded-t-xl rounded-br-xl">
                <MessageContent />
                <Reactions />
             </div>
