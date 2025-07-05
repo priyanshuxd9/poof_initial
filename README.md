@@ -9,6 +9,7 @@ Poof is a modern web application for creating temporary, self-destructing group 
     -   User sign-up and sign-in with email, a unique username, and password.
     -   Secure session management with Firebase Authentication.
     -   Password reset functionality.
+    -   Passwordless sign-in with Email Magic Links.
 -   **User Profiles**:
     -   Users can update their username.
     -   Customizable profile pictures with automatic image compression on upload.
@@ -91,7 +92,10 @@ Before running the app, you need to set up a Firebase project:
 2.  In the project dashboard, go to the **Build** section in the left sidebar.
 3.  **Authentication**:
     -   Enable Authentication.
-    -   On the "Sign-in method" tab, enable the **Email/Password** provider.
+    -   On the "Sign-in method" tab, click **Add new provider** and select **Email/Password**.
+    -   Enable the **Email/Password** provider toggle.
+    -   Crucially, also enable the **Email link (passwordless sign-in)** toggle within the same provider section.
+    -   Save the changes.
 4.  **Firestore Database**:
     -   Create a new Firestore database.
     -   Start in **production mode**. This is crucial for security.
@@ -192,3 +196,4 @@ You're all set! You can now access the app in your browser.
 -   `npm run typecheck`: Runs TypeScript type checking.
 -   `npm run genkit:dev`: Starts the Genkit development server.
 -   `npm run genkit:watch`: Starts the Genkit development server with file watching.
+
