@@ -280,12 +280,12 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       {isCurrentUser && <TimestampDisplay />}
     
       <div className={cn(
-        "flex flex-col",
-        isCurrentUser ? "max-w-[70%]" : "max-w-[calc(100%-4rem)]" // Ensure left-side messages have space
+        "flex flex-col min-w-0",
+        isCurrentUser ? "max-w-[75%]" : "max-w-[calc(100%-4rem)]"
       )}>
         <div
           className={cn(
-            "relative flex flex-col rounded-xl px-3 py-2",
+            "relative flex flex-col rounded-xl px-3 py-2 break-words",
             isCurrentUser
               ? "bg-primary text-primary-foreground rounded-br-none"
               : "bg-muted text-foreground rounded-bl-none",
