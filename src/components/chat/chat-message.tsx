@@ -331,16 +331,20 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
   if (isCurrentUser) {
     return (
-      <div className="flex justify-end items-start gap-2.5 group max-w-[85%]">
-        <div className="flex flex-col items-end gap-1">
-            <div className="relative">
-                <div className="bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl">
-                    <MessageContent />
-                    <Reactions />
-                </div>
-                <ReactionPopover />
+      <div className="flex items-end justify-end group max-w-[85%] ml-auto">
+        <div className="flex flex-col items-end gap-1 mr-2.5">
+          <div className="relative">
+            <div
+              className={cn(
+                "bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl",
+              )}
+            >
+              <MessageContent />
+              <Reactions />
             </div>
-            <TimestampDisplay />
+            <ReactionPopover />
+          </div>
+          <TimestampDisplay />
         </div>
         <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
@@ -351,7 +355,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   }
 
   return (
-    <div className="flex items-start gap-2.5 group max-w-[85%]">
+    <div className="flex items-end gap-2.5 group max-w-[85%]">
       <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
         <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
