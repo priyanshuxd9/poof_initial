@@ -223,7 +223,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
         return mediaAndTextLayout(
           <Dialog>
             <DialogTrigger asChild>
-              <div className="relative group/media w-fit text-left rounded-lg overflow-hidden cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+              <div className="relative group/media w-fit text-left overflow-hidden rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 <NextImage 
                   src={message.mediaUrl}
                   alt={message.fileName || "Shared image"}
@@ -265,7 +265,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       
       if (message.mediaType === 'file') {
         return mediaAndTextLayout(
-          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full text-current no-underline">
+          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full no-underline text-current">
             <FileText className="h-8 w-8 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-medium break-all">{message.fileName}</p>
@@ -331,12 +331,12 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
 
   if (isCurrentUser) {
     return (
-      <div className="flex items-end justify-end group max-w-[85%] ml-auto">
-        <div className="flex flex-col items-end gap-1 mr-2.5">
-          <div className="relative">
+      <div className="flex items-start justify-end group">
+        <div className="flex flex-col items-end">
+          <div className="relative mr-2.5">
             <div
               className={cn(
-                "bg-primary text-primary-foreground p-3 rounded-t-xl rounded-bl-xl",
+                "bg-primary text-primary-foreground p-3 rounded-l-xl rounded-tr-xl",
               )}
             >
               <MessageContent />
@@ -355,15 +355,15 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
   }
 
   return (
-    <div className="flex items-end gap-2.5 group max-w-[85%]">
+    <div className="flex items-start gap-2.5 group">
       <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={sender.photoURL || undefined} alt={sender.username} data-ai-hint="user avatar" className="object-cover"/>
         <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{getInitials(sender.username)}</AvatarFallback>
       </Avatar>
-      <div className="flex flex-col items-start gap-1">
+      <div className="flex flex-col items-start">
         <span className="font-semibold text-sm ml-3">{sender.username}</span>
          <div className="relative">
-            <div className="bg-card text-card-foreground p-3 rounded-t-xl rounded-br-xl">
+            <div className="bg-card text-card-foreground p-3 rounded-r-xl rounded-tl-xl">
                <MessageContent />
                <Reactions />
             </div>
