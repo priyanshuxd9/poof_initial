@@ -282,18 +282,17 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
       {isCurrentUser && <TimestampDisplay />}
     
       <div className={cn(
-        "flex flex-col min-w-0",
+        "flex flex-col min-w-0 max-w-[65%]",
         isCurrentUser ? "items-end" : "items-start"
       )}>
         <div
           className={cn(
-            "relative flex flex-col rounded-xl px-3 py-2",
+            "relative flex flex-col rounded-xl px-3 py-2 break-words",
             isCurrentUser
               ? "bg-primary text-primary-foreground rounded-br-none"
               : "bg-muted text-foreground rounded-bl-none",
             !message.text && message.mediaUrl && message.mediaType !== 'file' ? "p-1 bg-transparent" : "",
-            message.mediaType === 'file' ? 'p-0 bg-transparent' : '',
-            "break-words" // Force word wrapping inside the bubble
+            message.mediaType === 'file' ? 'p-0 bg-transparent' : ''
           )}
         >
           {!isCurrentUser && message.mediaType !== 'file' && (
