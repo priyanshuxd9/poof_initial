@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,14 +23,14 @@ import { joinGroupWithCode } from "@/lib/firebase";
 interface JoinGroupDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onGroupJoined: () => void;
 }
 
-export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
+export function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: JoinGroupDialogProps) {
   const [inviteCode, setInviteCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const router = useRouter();
   
   useEffect(() => {
     if (!open) {
@@ -67,8 +68,9 @@ export function JoinGroupDialog({ open, onOpenChange }: JoinGroupDialogProps) {
         title: "Successfully Joined Group!",
         description: `Welcome to "${result.groupName}".`,
       });
+      
+      onGroupJoined(); // Callback to refresh the dashboard
       onOpenChange(false);
-      router.refresh(); 
 
     } catch (error: any) {
       toast({

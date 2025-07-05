@@ -10,9 +10,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
-import { db, cleanupExpiredGroup } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import {
@@ -118,58 +118,56 @@ export default function DashboardPage() {
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchAndProcessGroups = async () => {
-      if (!user || !user.uid) {
-        setIsLoadingGroups(false);
-        setGroups([]);
-        return;
-      }
-      setIsLoadingGroups(true);
-      try {
-        const groupsRef = collection(db, "groups");
-        // Query for ALL groups the user is a member of.
-        const q = query(
-          groupsRef, 
-          where("memberUserIds", "array-contains", user.uid),
-          where("selfDestructAt", ">", new Date())
-        );
+  const fetchAndProcessGroups = useCallback(async () => {
+    if (!user || !user.uid) {
+      setIsLoadingGroups(false);
+      setGroups([]);
+      return;
+    }
+    setIsLoadingGroups(true);
+    try {
+      const groupsRef = collection(db, "groups");
+      const q = query(
+        groupsRef, 
+        where("memberUserIds", "array-contains", user.uid),
+        where("selfDestructAt", ">", new Date())
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      const activeGroups: Group[] = [];
+      
+      querySnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const selfDestructDate = (data.selfDestructAt as Timestamp).toDate();
         
-        const querySnapshot = await getDocs(q);
-        
-        const activeGroups: Group[] = [];
-        
-        querySnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          const selfDestructDate = (data.selfDestructAt as Timestamp).toDate();
-          
-          activeGroups.push({
-            id: doc.id,
-            name: data.name,
-            description: data.description,
-            memberCount: data.memberUserIds?.length || 0,
-            lastActivity: data.lastActivity ? (data.lastActivity as Timestamp).toDate().toISOString() : new Date().toISOString(),
-            imageUrl: data.imageUrl,
-            selfDestructAt: selfDestructDate.toISOString(),
-            createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-          });
+        activeGroups.push({
+          id: doc.id,
+          name: data.name,
+          description: data.description,
+          memberCount: data.memberUserIds?.length || 0,
+          lastActivity: data.lastActivity ? (data.lastActivity as Timestamp).toDate().toISOString() : new Date().toISOString(),
+          imageUrl: data.imageUrl,
+          selfDestructAt: selfDestructDate.toISOString(),
+          createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
         });
-        
-        // Sort active groups by expiration and update the state to render the dashboard.
-        activeGroups.sort((a, b) => new Date(a.selfDestructAt).getTime() - new Date(b.selfDestructAt).getTime());
-        setGroups(activeGroups);
+      });
+      
+      activeGroups.sort((a, b) => new Date(a.selfDestructAt).getTime() - new Date(b.selfDestructAt).getTime());
+      setGroups(activeGroups);
 
-      } catch (error) {
-        console.error("Error fetching active groups:", error);
-      } finally {
-        setIsLoadingGroups(false);
-      }
-    };
+    } catch (error) {
+      console.error("Error fetching active groups:", error);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  }, [user]);
 
+  useEffect(() => {
     if (!authLoading) {
       fetchAndProcessGroups();
     }
-  }, [user, authLoading]);
+  }, [authLoading, fetchAndProcessGroups]);
 
 
   if (authLoading || isLoadingGroups) {
@@ -203,7 +201,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <JoinGroupDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen} />
+      <JoinGroupDialog 
+        open={isJoinDialogOpen} 
+        onOpenChange={setIsJoinDialogOpen}
+        onGroupJoined={fetchAndProcessGroups} 
+      />
 
       {groups.length === 0 ? (
         <Alert className="max-w-2xl mx-auto shadow-md">
