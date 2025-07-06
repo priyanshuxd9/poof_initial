@@ -29,14 +29,17 @@ type TimeLeft = { text: string; percent: number; isLow: boolean };
 export function useCountdown(selfDestructAt: Date, createdAt: Date): TimeLeft {
     const [timeLeft, setTimeLeft] = useState<TimeLeft>({ text: 'Calculating...', percent: 100, isLow: false });
 
+    // By getting the primitive time value, we provide a stable dependency for the useEffect hook,
+    // preventing an infinite loop if new Date objects are passed on each render.
+    const selfDestructTime = selfDestructAt.getTime();
+    const createdTime = createdAt.getTime();
+
     useEffect(() => {
         const calculateRemainingTime = () => {
             const now = new Date().getTime();
-            const destructTime = selfDestructAt.getTime();
-            const createdTime = createdAt.getTime();
             
-            const totalDuration = destructTime - createdTime;
-            const timeRemaining = destructTime - now;
+            const totalDuration = selfDestructTime - createdTime;
+            const timeRemaining = selfDestructTime - now;
 
             if (timeRemaining <= 0) {
                 setTimeLeft({ text: 'Poofed!', percent: 0, isLow: true });
@@ -67,7 +70,7 @@ export function useCountdown(selfDestructAt: Date, createdAt: Date): TimeLeft {
         calculateRemainingTime();
         const intervalId = setInterval(calculateRemainingTime, 30000); // Update every 30 seconds
         return () => clearInterval(intervalId);
-    }, [selfDestructAt, createdAt]);
+    }, [selfDestructTime, createdTime]); // Use the stable primitive values as dependencies
 
     return timeLeft;
 }
