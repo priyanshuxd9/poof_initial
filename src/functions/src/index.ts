@@ -1,7 +1,8 @@
 
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
-import type { UserRecord } from "firebase-admin/auth";
+import { FieldValue } from "firebase-admin/firestore";
+import type { UserRecord } from "firebase-functions/v1/auth";
 
 admin.initializeApp();
 
@@ -54,13 +55,17 @@ export const onUserDelete = functions
       const userDocRef = db.collection("users").doc(uid);
       const userDocSnap = await userDocRef.get();
       const userData = userDocSnap.data();
-      if (userData?.username) {
+
+      // More defensive check to ensure username is a non-empty string.
+      if (userData && typeof userData.username === "string" && userData.username) {
         const usernameDocRef = db.collection("usernames").doc(userData.username.toLowerCase());
         batch.delete(usernameDocRef);
         logger.log(`Scheduled deletion for username: ${userData.username}`);
       }
-      batch.delete(userDocRef);
-      logger.log(`Scheduled deletion for user doc: ${uid}`);
+      if (userDocSnap.exists()) {
+        batch.delete(userDocRef);
+        logger.log(`Scheduled deletion for user doc: ${uid}`);
+      }
 
 
       // 2. Delete user's profile picture from Storage
@@ -100,7 +105,7 @@ export const onUserDelete = functions
         if (doc.data().ownerId !== uid) {
           logger.log(`User ${uid} is a member of group ${doc.id}. Removing them.`);
           batch.update(doc.ref, {
-            memberUserIds: admin.firestore.FieldValue.arrayRemove(uid),
+            memberUserIds: FieldValue.arrayRemove(uid),
           });
         }
       }
