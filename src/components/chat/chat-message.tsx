@@ -224,14 +224,16 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
           <Dialog>
             <DialogTrigger asChild>
               <div className="relative group/media w-fit overflow-hidden rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                <NextImage 
-                  src={message.mediaUrl}
-                  alt={message.fileName || "Shared image"}
-                  width={300}
-                  height={300}
-                  className="object-cover w-auto max-h-[200px] sm:max-h-[280px]"
-                  unoptimized
-                />
+                 <div className="overflow-hidden rounded-lg">
+                    <NextImage 
+                        src={message.mediaUrl}
+                        alt={message.fileName || "Shared image"}
+                        width={300}
+                        height={300}
+                        className="object-cover w-auto max-h-[200px] sm:max-h-[280px]"
+                        unoptimized
+                    />
+                 </div>
                 <a 
                   href={message.mediaUrl} 
                   download={message.fileName} 
@@ -273,7 +275,7 @@ export function ChatMessage({ message, sender, isCurrentUser, membersMap }: Chat
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium break-all">{message.fileName}</p>
+                <p className="break-all">{message.fileName}</p>
                 {typeof message.fileSize === 'number' && <p className="text-xs opacity-70">{formatFileSize(message.fileSize)}</p>}
               </div>
             </a>
