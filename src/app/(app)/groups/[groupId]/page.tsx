@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,7 +9,6 @@ import { GroupChatHeader } from '@/components/chat/group-header-chat';
 import { MessageList } from '@/components/chat/message-list';
 import { MessageInput } from '@/components/chat/message-input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Group {
@@ -89,7 +87,8 @@ export default function GroupChatPage() {
   // Effect for fetching member profiles whenever the list of member IDs changes.
   useEffect(() => {
     if (group?.memberUserIds && group.memberUserIds.length > 0) {
-      getUsersFromIds(group.memberUserIds).then(memberProfiles => {
+      const parsedMemberIds = JSON.parse(memberIds) as string[];
+      getUsersFromIds(parsedMemberIds).then(memberProfiles => {
         setMembers(memberProfiles);
       });
     } else {
@@ -126,8 +125,10 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-full">
       <GroupChatHeader group={group} />
-      <MessageList groupId={groupId} members={members} />
-      <MessageInput groupId={groupId} />
+      <div className="relative flex-1">
+        <MessageList groupId={groupId} members={members} />
+        <MessageInput groupId={groupId} />
+      </div>
     </div>
   );
 }

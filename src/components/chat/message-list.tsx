@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
@@ -121,8 +120,8 @@ export function MessageList({ groupId, members }: MessageListProps) {
   });
 
   return (
-    <ScrollArea className="flex-1" viewportRef={viewportRef}>
-        <div className="p-4 space-y-4">
+    <ScrollArea className="h-full" viewportRef={viewportRef}>
+        <div className="p-4 space-y-4 pb-24">
         {messages.length === 0 ? (
              <div className="p-4 h-full flex flex-col items-center justify-center text-center text-muted-foreground">
                 <MessageSquareDashed className="h-12 w-12 mb-4" />

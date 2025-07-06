@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef } from 'react';
@@ -193,7 +192,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
     if (!file) return null;
 
     return (
-        <div className="relative mb-2 p-2 bg-muted rounded-lg w-fit">
+        <div className="relative mb-2 p-2 bg-card rounded-lg w-fit shadow-lg ml-2 sm:ml-4">
             <div className="flex items-center gap-2">
                 {filePreview ? (
                     <NextImage src={filePreview} alt="Image preview" width={40} height={40} className="rounded object-cover h-10 w-10" />
@@ -218,35 +217,18 @@ export function MessageInput({ groupId }: MessageInputProps) {
   };
 
   return (
-    <div className="flex-shrink-0 p-2 bg-card">
-      {renderFilePreview()}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSendMessage();
-        }}
-        className="flex items-end gap-2"
-      >
-        <Button 
-            type="button" 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isSending}
-            aria-label="Attach file"
-            className="shrink-0"
+    <div className="absolute bottom-0 left-0 right-0">
+      <div className="pointer-events-none absolute bottom-0 left-0 h-32 w-full bg-gradient-to-t from-background to-transparent" />
+      <div className="p-2 sm:p-4">
+        {renderFilePreview()}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSendMessage();
+          }}
+          className="relative flex items-end gap-2"
         >
-            <Paperclip className="h-5 w-5" />
-        </Button>
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange}
-            className="hidden" 
-            disabled={isSending}
-            accept="image/png, image/jpeg, image/webp, .pdf, .doc, .docx, .txt"
-        />
-        <div className="relative flex-1">
+          <div className="relative flex-1">
             <Textarea
               ref={textInputRef}
               value={message}
@@ -256,35 +238,59 @@ export function MessageInput({ groupId }: MessageInputProps) {
               autoComplete="off"
               disabled={isSending}
               rows={1}
-              className="w-full h-10 flex-1 resize-none max-h-32 pr-10 pl-4 py-2 bg-muted rounded-full border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="w-full h-12 flex-1 resize-none max-h-36 pr-[88px] pl-4 py-3 bg-card rounded-full shadow-lg border-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             />
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" disabled={isSending} aria-label="Add emoji" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8">
-                        <Smile className="h-5 w-5 text-muted-foreground" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 mb-2" side="top" align="end">
-                    <div className="grid grid-cols-8 gap-1 rounded-lg bg-popover border p-2 shadow-lg">
-                        {EMOJIS.map(emoji => (
-                            <button
-                                key={emoji}
-                                type="button"
-                                className="text-2xl rounded-md hover:bg-accent p-1 transition-colors"
-                                onClick={() => handleEmojiSelect(emoji)}
-                            >
-                                {emoji}
-                            </button>
-                        ))}
-                    </div>
-                </PopoverContent>
-            </Popover>
-        </div>
-        <Button type="submit" variant="ghost" size="icon" disabled={isSending || (message.trim() === '' && !file)} className="shrink-0">
-          {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizonal className="h-5 w-5" />}
-          <span className="sr-only">Send Message</span>
-        </Button>
-      </form>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+                <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSending}
+                    aria-label="Attach file"
+                    className="h-9 w-9"
+                >
+                    <Paperclip className="h-5 w-5 text-muted-foreground" />
+                </Button>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon" disabled={isSending} aria-label="Add emoji" className="h-9 w-9">
+                            <Smile className="h-5 w-5 text-muted-foreground" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 mb-2" side="top" align="end">
+                        <div className="grid grid-cols-8 gap-1 rounded-lg bg-popover border p-2 shadow-lg">
+                            {EMOJIS.map(emoji => (
+                                <button
+                                    key={emoji}
+                                    type="button"
+                                    className="text-2xl rounded-md hover:bg-accent p-1 transition-colors"
+                                    onClick={() => handleEmojiSelect(emoji)}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            </div>
+          </div>
+          
+          <Button type="submit" size="icon" disabled={isSending || (message.trim() === '' && !file)} className="h-12 w-12 shrink-0 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90">
+            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizonal className="h-5 w-5" />}
+            <span className="sr-only">Send Message</span>
+          </Button>
+
+          <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileChange}
+              className="hidden" 
+              disabled={isSending}
+              accept="image/png, image/jpeg, image/webp, .pdf, .doc, .docx, .txt"
+          />
+        </form>
+      </div>
     </div>
   );
 }
