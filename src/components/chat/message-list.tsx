@@ -93,7 +93,7 @@ export function MessageList({ groupId, members }: MessageListProps) {
   const itemsToRender: React.ReactNode[] = [];
   let lastMessageDateString: string | null = null;
 
-  messages.forEach((message) => {
+  messages.forEach((message, index) => {
     if (!message.createdAt) return;
 
     const messageDate = message.createdAt.toDate();
@@ -122,7 +122,7 @@ export function MessageList({ groupId, members }: MessageListProps) {
 
   return (
     <ScrollArea className="h-full" viewportRef={viewportRef}>
-        <div className="p-4 space-y-3 pb-28">
+        <div className="p-4 space-y-3 pb-20">
         {messages.length === 0 ? (
              <div className="p-4 h-full flex flex-col items-center justify-center text-center text-muted-foreground">
                 <MessageSquareDashed className="h-12 w-12 mb-4" />
