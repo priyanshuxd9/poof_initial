@@ -218,14 +218,14 @@ export function MessageInput({ groupId }: MessageInputProps) {
   };
 
   return (
-    <div className="flex-shrink-0 p-4 border-t bg-card">
+    <div className="flex-shrink-0 p-2 bg-card">
       {renderFilePreview()}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="flex items-center gap-2"
+        className="flex items-end gap-2"
       >
         <Button 
             type="button" 
@@ -234,6 +234,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending}
             aria-label="Attach file"
+            className="shrink-0"
         >
             <Paperclip className="h-5 w-5" />
         </Button>
@@ -255,7 +256,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
               autoComplete="off"
               disabled={isSending}
               rows={1}
-              className="h-10 flex-1 resize-none max-h-32 pr-10 py-2"
+              className="w-full h-10 flex-1 resize-none max-h-32 pr-10 pl-4 py-2 bg-muted rounded-full border-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             <Popover>
                 <PopoverTrigger asChild>
@@ -279,7 +280,7 @@ export function MessageInput({ groupId }: MessageInputProps) {
                 </PopoverContent>
             </Popover>
         </div>
-        <Button type="submit" size="icon" disabled={isSending || (message.trim() === '' && !file)}>
+        <Button type="submit" variant="ghost" size="icon" disabled={isSending || (message.trim() === '' && !file)} className="shrink-0">
           {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizonal className="h-5 w-5" />}
           <span className="sr-only">Send Message</span>
         </Button>
