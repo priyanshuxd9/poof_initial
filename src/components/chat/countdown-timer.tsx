@@ -11,7 +11,23 @@ interface CountdownTimerProps {
 }
 
 export function CountdownTimer({ selfDestructAt, createdAt }: CountdownTimerProps) {
-    const [timeLeft, setTimeLeft] = useState({ text: 'Calculating...', percent: 100, isLow: false });
+    const timeLeft = useCountdown(selfDestructAt, createdAt);
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            <div className={`flex items-center gap-1.5 text-xs ${timeLeft.isLow ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <Clock className="h-3 w-3" />
+                <span>{timeLeft.text}</span>
+            </div>
+            <Progress value={timeLeft.percent} className={`h-1 ${timeLeft.isLow ? '[&>div]:bg-destructive' : ''}`} />
+        </div>
+    )
+}
+
+type TimeLeft = { text: string; percent: number; isLow: boolean };
+
+export function useCountdown(selfDestructAt: Date, createdAt: Date): TimeLeft {
+    const [timeLeft, setTimeLeft] = useState<TimeLeft>({ text: 'Calculating...', percent: 100, isLow: false });
 
     useEffect(() => {
         const calculateRemainingTime = () => {
@@ -53,13 +69,5 @@ export function CountdownTimer({ selfDestructAt, createdAt }: CountdownTimerProp
         return () => clearInterval(intervalId);
     }, [selfDestructAt, createdAt]);
 
-    return (
-        <div className="flex flex-col gap-1.5">
-            <div className={`flex items-center gap-1.5 text-xs ${timeLeft.isLow ? 'text-destructive' : 'text-muted-foreground'}`}>
-                <Clock className="h-3 w-3" />
-                <span>{timeLeft.text}</span>
-            </div>
-            <Progress value={timeLeft.percent} className={`h-1 ${timeLeft.isLow ? '[&>div]:bg-destructive' : ''}`} />
-        </div>
-    )
+    return timeLeft;
 }

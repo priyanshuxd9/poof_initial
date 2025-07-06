@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, Share2, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Users, Share2, Copy, Check, Clock } from 'lucide-react';
 import type { Group } from '@/app/(app)/groups/[groupId]/page';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { CountdownTimer } from './countdown-timer';
+import { useCountdown } from './countdown-timer';
+import { Progress } from '../ui/progress';
 
 interface GroupChatHeaderProps {
   group: Group;
@@ -31,6 +32,7 @@ export function GroupChatHeader({ group }: GroupChatHeaderProps) {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
   const { toast } = useToast();
+  const timeLeft = useCountdown(group.selfDestructAt.toDate(), group.createdAt.toDate());
 
   const handleCopy = () => {
     navigator.clipboard.writeText(group.inviteCode).then(() => {
@@ -41,55 +43,61 @@ export function GroupChatHeader({ group }: GroupChatHeaderProps) {
   };
 
   return (
-    <header className="flex-shrink-0 flex items-center p-3 sm:p-4 border-b bg-card">
-      <Button variant="ghost" size="icon" className="mr-2 sm:mr-4 lg:hidden" onClick={() => router.push('/dashboard')}>
-        <ArrowLeft className="h-5 w-5" />
-      </Button>
-      <Link href={`/groups/${group.id}/info`} className="flex items-center flex-1 min-w-0 mr-4 group">
-        <Avatar className="h-10 w-10 mr-3">
-          <AvatarImage src={group.imageUrl} alt={group.name} data-ai-hint="group avatar" className="object-cover"/>
-          <AvatarFallback>{getInitials(group.name)}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold truncate group-hover:underline">{group.name}</h2>
-          <div className="w-full">
-            <CountdownTimer selfDestructAt={group.selfDestructAt.toDate()} createdAt={group.createdAt.toDate()} />
-          </div>
-        </div>
-      </Link>
-      <div className="flex items-center gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/groups/${group.id}/info`}>
-            <Users className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Info</span>
-          </Link>
-        </Button>
-        <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Share2 className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Invite</span>
+    <header className="flex-shrink-0 flex flex-col p-2 border-b bg-card">
+        <div className="flex items-center w-full">
+            <Button variant="ghost" size="icon" className="mr-2 lg:hidden" onClick={() => router.push('/dashboard')}>
+                <ArrowLeft className="h-5 w-5" />
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite members to {group.name}</DialogTitle>
-              <DialogDescription>
-                Share this code with others to let them join this group.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2 py-4">
-              <Label htmlFor="invite-code">Invite Code</Label>
-              <div className="flex items-center gap-2">
-                <Input id="invite-code" value={group.inviteCode} readOnly />
-                <Button size="icon" onClick={handleCopy}>
-                  {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            <Link href={`/groups/${group.id}/info`} className="flex items-center flex-1 min-w-0 mr-2 group">
+                <Avatar className="h-9 w-9 mr-3">
+                <AvatarImage src={group.imageUrl} alt={group.name} data-ai-hint="group avatar" className="object-cover"/>
+                <AvatarFallback>{getInitials(group.name)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-base font-semibold truncate group-hover:underline">{group.name}</h2>
+                    <div className={`flex items-center gap-1.5 text-xs ${timeLeft.isLow ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        <Clock className="h-3 w-3" />
+                        <span>{timeLeft.text}</span>
+                    </div>
+                </div>
+            </Link>
+            <div className="flex items-center gap-1">
+                <Button asChild variant="ghost" size="icon">
+                <Link href={`/groups/${group.id}/info`}>
+                    <Users className="h-5 w-5" />
+                    <span className="sr-only">Info</span>
+                </Link>
                 </Button>
-              </div>
+                <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                    <Share2 className="h-5 w-5" />
+                    <span className="sr-only">Invite</span>
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                    <DialogTitle>Invite members to {group.name}</DialogTitle>
+                    <DialogDescription>
+                        Share this code with others to let them join this group.
+                    </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2 py-4">
+                    <Label htmlFor="invite-code">Invite Code</Label>
+                    <div className="flex items-center gap-2">
+                        <Input id="invite-code" value={group.inviteCode} readOnly />
+                        <Button size="icon" onClick={handleCopy}>
+                        {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                    </div>
+                </DialogContent>
+                </Dialog>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+        </div>
+        <div className="w-full mt-2 px-1">
+            <Progress value={timeLeft.percent} className={`h-1 ${timeLeft.isLow ? '[&>div]:bg-destructive' : ''}`} />
+        </div>
     </header>
   );
 }
