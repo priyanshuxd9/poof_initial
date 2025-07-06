@@ -41,7 +41,7 @@ async function deleteQueryBatch(
 
 export const onUserDelete = functions
   .runWith({ maxInstances: 10 })
-  .auth.user().onDelete(async (user) => {
+  .auth.user().onDelete(async (user: functions.auth.UserRecord) => {
     const { uid } = user;
     const logger = functions.logger;
     logger.log(`Starting cleanup for user: ${uid}`);
