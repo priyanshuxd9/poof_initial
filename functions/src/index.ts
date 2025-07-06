@@ -2,6 +2,7 @@
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 import type { UserRecord } from "firebase-functions/v1/auth";
+import { FieldValue } from "firebase-admin/firestore";
 
 admin.initializeApp();
 
@@ -61,7 +62,7 @@ export const onUserDelete = functions
         batch.delete(usernameDocRef);
         logger.log(`Scheduled deletion for username: ${userData.username}`);
       }
-      if (userDocSnap.exists()) {
+      if (userDocSnap.exists) {
         batch.delete(userDocRef);
         logger.log(`Scheduled deletion for user doc: ${uid}`);
       }
@@ -104,7 +105,7 @@ export const onUserDelete = functions
         if (doc.data().ownerId !== uid) {
           logger.log(`User ${uid} is a member of group ${doc.id}. Removing them.`);
           batch.update(doc.ref, {
-            memberUserIds: admin.firestore.FieldValue.arrayRemove(uid),
+            memberUserIds: FieldValue.arrayRemove(uid),
           });
         }
       }
