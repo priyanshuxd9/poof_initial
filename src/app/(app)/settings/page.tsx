@@ -31,13 +31,15 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [fontSize, setFontSize] = useState(100);
+  const [fontSize, setFontSize] = useState(90);
 
   // Load initial font size from localStorage
   useEffect(() => {
     const savedSize = localStorage.getItem('app-font-size');
     if (savedSize) {
       setFontSize(parseInt(savedSize, 10));
+    } else {
+      setFontSize(90); // Explicitly set to default if nothing is saved
     }
   }, []);
 
@@ -115,8 +117,8 @@ export default function SettingsPage() {
               <Slider
                 value={[fontSize]}
                 onValueChange={handleFontSizeChange}
-                min={80}
-                max={120}
+                min={70}
+                max={130}
                 step={10}
                 className="flex-1"
               />
