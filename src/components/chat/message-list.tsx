@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquareDashed, Loader2 } from "lucide-react";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
@@ -37,8 +37,11 @@ export function MessageList({ groupId, members }: MessageListProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const prevMessagesLength = useRef(0);
 
-  // Create a map of members for quick lookup
-  const membersMap = new Map(members.map(member => [member.uid, member]));
+  // Create a memoized map of members for quick lookup to prevent re-renders
+  const membersMap = useMemo(() => 
+    new Map(members.map(member => [member.uid, member])),
+    [members]
+  );
 
   useEffect(() => {
     if (!groupId) return;
@@ -76,7 +79,7 @@ export function MessageList({ groupId, members }: MessageListProps) {
     }
     // Update the ref for the next comparison
     prevMessagesLength.current = messages.length;
-  }, [messages]);
+  }, [messages.length]);
 
 
   if (isLoading) {

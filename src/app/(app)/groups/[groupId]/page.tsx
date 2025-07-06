@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
@@ -35,13 +35,15 @@ export default function GroupChatPage() {
   const [members, setMembers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Effect for fetching the main group data
   useEffect(() => {
     if (authLoading || !user || !groupId) return;
 
+    setLoading(true);
     const groupDocRef = doc(db, 'groups', groupId);
     const unsubscribe = onSnapshot(
       groupDocRef,
-      async (docSnap) => {
+      (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           // Security check: ensure current user is a member
@@ -64,12 +66,6 @@ export default function GroupChatPage() {
           }
           
           setGroup(groupData);
-          
-          // Fetch member profiles if they haven't been fetched or have changed
-          if (groupData.memberUserIds && groupData.memberUserIds.length !== members.length) {
-            const memberProfiles = await getUsersFromIds(groupData.memberUserIds);
-            setMembers(memberProfiles);
-          }
 
         } else {
           console.log("Group does not exist.");
@@ -85,7 +81,21 @@ export default function GroupChatPage() {
     );
 
     return () => unsubscribe();
-  }, [groupId, user, authLoading, router, members.length, toast]);
+  }, [groupId, user, authLoading, router, toast]);
+
+  // Memoize the sorted list of member IDs. This string will only change when the members actually change.
+  const memberIds = useMemo(() => JSON.stringify(group?.memberUserIds?.sort() ?? []), [group]);
+
+  // Effect for fetching member profiles whenever the list of member IDs changes.
+  useEffect(() => {
+    if (group?.memberUserIds && group.memberUserIds.length > 0) {
+      getUsersFromIds(group.memberUserIds).then(memberProfiles => {
+        setMembers(memberProfiles);
+      });
+    } else {
+      setMembers([]);
+    }
+  }, [memberIds, group?.memberUserIds]);
 
   if (loading || authLoading) {
     return (
