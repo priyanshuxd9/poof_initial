@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -125,7 +126,7 @@ export default function GroupChatPage() {
   return (
     <div className="flex flex-col h-full">
       <GroupChatHeader group={group} />
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-h-0">
         <MessageList groupId={groupId} members={members} />
         <MessageInput groupId={groupId} />
       </div>
