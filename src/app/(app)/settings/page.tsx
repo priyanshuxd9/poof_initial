@@ -57,12 +57,11 @@ export default function SettingsPage() {
     }
     setIsDeleting(true);
     try {
-        await deleteUserAccount(user);
-        toast({ title: "Account Deleted", description: "Your account has been permanently deleted." });
-        router.push('/auth/signin');
+        await deleteUserAccount();
+        toast({ title: "Account Deletion Started", description: "Your account and all associated data are being permanently deleted. This may take a moment." });
+        // The onAuthStateChanged listener in auth-context will handle redirecting the user.
     } catch (error: any) {
         toast({ title: "Error", description: `Could not delete account: ${error.message}. You may need to sign in again for this operation.`, variant: "destructive" });
-    } finally {
         setIsDeleting(false);
     }
   };

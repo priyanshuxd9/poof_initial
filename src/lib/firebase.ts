@@ -96,20 +96,15 @@ export const updateUserProfilePhoto = async (uid: string, photoURL: string) => {
 };
 
 
-export const deleteUserAccount = async (user: FirebaseUser & { username?: string }) => {
+export const deleteUserAccount = async () => {
   ensureFirebaseInitialized();
-  if (!user.username) throw new Error("Username is missing, cannot delete account data.");
-
-  const userDocRef = doc(db, 'users', user.uid);
-  const usernameDocRef = doc(db, 'usernames', user.username.toLowerCase());
-  
-  const batch = writeBatch(db);
-  batch.delete(userDocRef);
-  batch.delete(usernameDocRef);
-
-  await batch.commit();
-
-  await deleteUser(user);
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error("User must be signed in to delete their account.");
+  }
+  // This just triggers the deletion. The onUserDelete Cloud Function
+  // will handle the cleanup of all associated user data in Firestore and Storage.
+  await deleteUser(currentUser);
 };
 
 
