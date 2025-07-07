@@ -4,7 +4,7 @@
 import { useParams, useRouter } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, Calendar, Crown, Users, ImagePlus, Loader2, Timer, Save, Trash2, LogOut } from "lucide-react";
+import { ArrowLeft, User, Calendar, Crown, Users, ImagePlus, Loader2, Timer, Save, Trash2, LogOut, File, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,6 +29,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MediaGallery } from "@/components/groups/media-gallery";
 
 interface GroupInfo {
   name: string;
@@ -204,10 +206,10 @@ export default function GroupInfoPage() {
     return (
       <div className="container mx-auto max-w-3xl py-8 px-4">
         <Skeleton className="h-9 w-40 mb-8" />
+        <Skeleton className="h-10 w-full mb-4" />
         <Card>
-          <CardHeader className="text-center">
-            <Skeleton className="h-8 w-1/2 mx-auto mb-2" />
-            <Skeleton className="h-4 w-3/4 mx-auto" />
+          <CardHeader>
+            <Skeleton className="h-8 w-1/2" />
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -253,190 +255,210 @@ export default function GroupInfoPage() {
           Back to Chat
         </Link>
       </Button>
-      <div className="space-y-8">
-        <Card className="shadow-lg">
-            <CardHeader className="text-center border-b pb-6">
-            <div className="relative flex justify-center mb-4 w-24 h-24 mx-auto">
-                <Avatar className="h-full w-full border-4 border-primary">
-                    <AvatarImage src={groupInfo.imageUrl || `https://placehold.co/100x100.png`} alt={groupInfo.name} data-ai-hint="group logo" className="object-cover"/>
-                    <AvatarFallback className="bg-primary text-primary-foreground text-3xl">{getInitials(groupInfo.name)}</AvatarFallback>
-                </Avatar>
-                {isOwner && (
-                    <div 
-                        className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer group/icon"
-                        onClick={() => !isUploading && fileInputRef.current?.click()}
-                    >
-                        {isUploading ? (
-                            <Loader2 className="h-8 w-8 text-white animate-spin" />
-                        ) : (
-                        <ImagePlus className="h-8 w-8 text-white group-hover/icon:scale-110 transition-transform" />
-                        )}
-                    </div>
-                )}
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageChange}
-                    className="hidden"
-                    accept="image/png, image/jpeg, image/webp"
-                    disabled={isUploading || isUpdatingTimer || isLeaving}
-                />
-            </div>
-            <CardTitle className="text-3xl font-bold tracking-tight">{groupInfo.name}</CardTitle>
-            <CardDescription className="text-md max-w-prose mx-auto">{groupInfo.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-3 bg-muted p-3 rounded-lg">
-                        <Crown className="h-5 w-5 text-primary"/>
-                        <div>
-                            <p className="font-semibold text-foreground">Group Creator</p>
-                            <p className="text-muted-foreground">{owner?.username || 'Unknown'}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3 bg-muted p-3 rounded-lg">
-                        <Calendar className="h-5 w-5 text-primary"/>
-                        <div>
-                            <p className="font-semibold text-foreground">Created On</p>
-                            <p className="text-muted-foreground">{format(new Date(groupInfo.createdAt), "MMMM d, yyyy")}</p>
-                        </div>
-                    </div>
-                </div>
 
-                <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2"><Users className="h-5 w-5"/> Members ({members.length})</h3>
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                        {members.map(member => (
-                            <div key={member.uid} className="flex items-center gap-4 hover:bg-muted/50 p-2 rounded-md">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarImage src={member.photoURL || `https://placehold.co/40x40.png`} alt={member.username} data-ai-hint="user avatar" className="object-cover"/>
-                                    <AvatarFallback className="bg-secondary text-secondary-foreground">{getInitials(member.username)}</AvatarFallback>
-                                </Avatar>
-                                <span className="font-medium text-foreground">{member.username}</span>
-                                {member.uid === owner?.uid && <Crown className="h-4 w-4 text-yellow-500 ml-auto" title="Group Creator"/>}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-
-        {isOwner && (
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="details"><Users className="mr-2 h-4 w-4" /> Details</TabsTrigger>
+          <TabsTrigger value="media"><ImageIcon className="mr-2 h-4 w-4" /> Media</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details" className="mt-6">
+          <div className="space-y-8">
             <Card className="shadow-lg">
-                <CardHeader>
-                    <CardTitle>Manage Group Timer</CardTitle>
-                    <CardDescription>Adjust how long this group will exist before it "poofs".</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                            <Timer className="h-6 w-6 text-muted-foreground" />
-                            <Slider
-                                value={[newTimerDays]}
-                                onValueChange={(val) => setNewTimerDays(val[0])}
-                                min={1}
-                                max={31}
-                                step={1}
-                                className="flex-1"
-                                disabled={isUpdatingTimer || isLeaving}
-                            />
-                            <span className="text-lg font-semibold w-24 text-center">
-                                {newTimerDays} {newTimerDays === 1 ? 'day' : 'days'}
-                            </span>
+                <CardHeader className="text-center border-b pb-6">
+                <div className="relative flex justify-center mb-4 w-24 h-24 mx-auto">
+                    <Avatar className="h-full w-full border-4 border-primary">
+                        <AvatarImage src={groupInfo.imageUrl || `https://placehold.co/100x100.png`} alt={groupInfo.name} data-ai-hint="group logo" className="object-cover"/>
+                        <AvatarFallback className="bg-primary text-primary-foreground text-3xl">{getInitials(groupInfo.name)}</AvatarFallback>
+                    </Avatar>
+                    {isOwner && (
+                        <div 
+                            className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer group/icon"
+                            onClick={() => !isUploading && fileInputRef.current?.click()}
+                        >
+                            {isUploading ? (
+                                <Loader2 className="h-8 w-8 text-white animate-spin" />
+                            ) : (
+                            <ImagePlus className="h-8 w-8 text-white group-hover/icon:scale-110 transition-transform" />
+                            )}
                         </div>
-                        <p className="text-sm text-muted-foreground text-center">
-                            This group will now self-destruct on <span className="font-semibold text-foreground">{format(newExpiryDate, "MMMM d, yyyy 'at' p")}</span>.
-                        </p>
+                    )}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageChange}
+                        className="hidden"
+                        accept="image/png, image/jpeg, image/webp"
+                        disabled={isUploading || isUpdatingTimer || isLeaving}
+                    />
+                </div>
+                <CardTitle className="text-3xl font-bold tracking-tight">{groupInfo.name}</CardTitle>
+                <CardDescription className="text-md max-w-prose mx-auto">{groupInfo.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-3 bg-muted p-3 rounded-lg">
+                            <Crown className="h-5 w-5 text-primary"/>
+                            <div>
+                                <p className="font-semibold text-foreground">Group Creator</p>
+                                <p className="text-muted-foreground">{owner?.username || 'Unknown'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 bg-muted p-3 rounded-lg">
+                            <Calendar className="h-5 w-5 text-primary"/>
+                            <div>
+                                <p className="font-semibold text-foreground">Created On</p>
+                                <p className="text-muted-foreground">{format(new Date(groupInfo.createdAt), "MMMM d, yyyy")}</p>
+                            </div>
+                        </div>
                     </div>
 
-                     <div className="flex flex-col sm:flex-row justify-between items-center rounded-lg border border-destructive/50 p-4">
+                    <div>
+                        <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2"><Users className="h-5 w-5"/> Members ({members.length})</h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                            {members.map(member => (
+                                <div key={member.uid} className="flex items-center gap-4 hover:bg-muted/50 p-2 rounded-md">
+                                    <Avatar className="h-10 w-10">
+                                        <AvatarImage src={member.photoURL || `https://placehold.co/40x40.png`} alt={member.username} data-ai-hint="user avatar" className="object-cover"/>
+                                        <AvatarFallback className="bg-secondary text-secondary-foreground">{getInitials(member.username)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-medium text-foreground">{member.username}</span>
+                                    {member.uid === owner?.uid && <Crown className="h-4 w-4 text-yellow-500 ml-auto" title="Group Creator"/>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {isOwner && (
+                <Card className="shadow-lg">
+                    <CardHeader>
+                        <CardTitle>Manage Group Timer</CardTitle>
+                        <CardDescription>Adjust how long this group will exist before it "poofs".</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                                <Timer className="h-6 w-6 text-muted-foreground" />
+                                <Slider
+                                    value={[newTimerDays]}
+                                    onValueChange={(val) => setNewTimerDays(val[0])}
+                                    min={1}
+                                    max={31}
+                                    step={1}
+                                    className="flex-1"
+                                    disabled={isUpdatingTimer || isLeaving}
+                                />
+                                <span className="text-lg font-semibold w-24 text-center">
+                                    {newTimerDays} {newTimerDays === 1 ? 'day' : 'days'}
+                                </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground text-center">
+                                This group will now self-destruct on <span className="font-semibold text-foreground">{format(newExpiryDate, "MMMM d, yyyy 'at' p")}</span>.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row justify-between items-center rounded-lg border border-destructive/50 p-4">
+                            <div>
+                                <h3 className="font-semibold text-destructive">Poof Now</h3>
+                                <p className="text-sm text-muted-foreground">Instantly and permanently delete all messages and archive this group.</p>
+                            </div>
+                            <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" className="mt-2 sm:mt-0 w-full sm:w-auto" disabled={isUpdatingTimer || isLeaving}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> Poof Now
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will immediately archive the group and delete all its messages. This action cannot be undone.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isUpdatingTimer || isLeaving}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handlePoofNow}
+                                    disabled={isUpdatingTimer || isLeaving}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                >
+                                    {(isUpdatingTimer || isLeaving) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                    Yes, Poof this group
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="justify-end">
+                        <Button onClick={handleUpdateTimer} disabled={!isTimerChanged || isUpdatingTimer || isLeaving}>
+                            {isUpdatingTimer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Save Timer Changes
+                        </Button>
+                    </CardFooter>
+                </Card>
+            )}
+            
+            <Card className="shadow-lg border-destructive">
+                <CardHeader>
+                    <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                    <CardDescription>Be careful, these actions are permanent.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col sm:flex-row justify-between items-center rounded-lg border border-destructive/50 p-4">
                         <div>
-                            <h3 className="font-semibold text-destructive">Poof Now</h3>
-                            <p className="text-sm text-muted-foreground">Instantly and permanently delete all messages and archive this group.</p>
+                            <h3 className="font-semibold text-destructive">Leave Group</h3>
+                            <p className="text-sm text-muted-foreground">
+                                {isOwner 
+                                    ? "Owners cannot leave a group. You must 'Poof' it instead." 
+                                    : "You will be removed from the group and will no longer have access."
+                                }
+                            </p>
                         </div>
                         <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" className="mt-2 sm:mt-0 w-full sm:w-auto" disabled={isUpdatingTimer || isLeaving}>
-                                <Trash2 className="mr-2 h-4 w-4" /> Poof Now
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will immediately archive the group and delete all its messages. This action cannot be undone.
-                            </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isUpdatingTimer || isLeaving}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={handlePoofNow}
-                                disabled={isUpdatingTimer || isLeaving}
-                                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                            >
-                                {(isUpdatingTimer || isLeaving) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                                Yes, Poof this group
-                            </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" className="mt-2 sm:mt-0 w-full sm:w-auto" disabled={isOwner || isLeaving}>
+                                    <LogOut className="mr-2 h-4 w-4" /> Leave Group
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure you want to leave?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    You will be removed from "{groupInfo.name}" and will need a new invite to rejoin. This action cannot be undone.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handleLeaveGroup}
+                                    disabled={isLeaving}
+                                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                >
+                                    {isLeaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+                                    Yes, Leave this group
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
                         </AlertDialog>
                     </div>
                 </CardContent>
-                <CardFooter className="justify-end">
-                     <Button onClick={handleUpdateTimer} disabled={!isTimerChanged || isUpdatingTimer || isLeaving}>
-                        {isUpdatingTimer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Save Timer Changes
-                    </Button>
-                </CardFooter>
             </Card>
-        )}
-        
-        <Card className="shadow-lg border-destructive">
-            <CardHeader>
-                <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                <CardDescription>Be careful, these actions are permanent.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="flex flex-col sm:flex-row justify-between items-center rounded-lg border border-destructive/50 p-4">
-                    <div>
-                        <h3 className="font-semibold text-destructive">Leave Group</h3>
-                        <p className="text-sm text-muted-foreground">
-                            {isOwner 
-                                ? "Owners cannot leave a group. You must 'Poof' it instead." 
-                                : "You will be removed from the group and will no longer have access."
-                            }
-                        </p>
-                    </div>
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" className="mt-2 sm:mt-0 w-full sm:w-auto" disabled={isOwner || isLeaving}>
-                                <LogOut className="mr-2 h-4 w-4" /> Leave Group
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure you want to leave?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                You will be removed from "{groupInfo.name}" and will need a new invite to rejoin. This action cannot be undone.
-                            </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={handleLeaveGroup}
-                                disabled={isLeaving}
-                                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                            >
-                                {isLeaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
-                                Yes, Leave this group
-                            </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </div>
-            </CardContent>
-        </Card>
-      </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="media" className="mt-6">
+           <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle>Media Gallery</CardTitle>
+                    <CardDescription>All images and files shared in this group.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <MediaGallery groupId={groupId} />
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
