@@ -1,5 +1,8 @@
+
 /**
  * @fileoverview Cloud Functions for user data management.
+ * This file contains the logic for cleaning up user data across Firestore
+ * and Cloud Storage when a user account is deleted from Firebase Authentication.
  */
 
 import * as functions from "firebase-functions/v1";
@@ -13,11 +16,15 @@ const db = admin.firestore();
 const storage = admin.storage();
 
 /**
- * Deletes all documents in a collection or subcollection in batches.
- * @param {string} collectionPath The path to the collection.
+ * Deletes all documents in a Firestore collection or subcollection in batches.
+ * This is used to clean up subcollections like "messages" within a group.
+ *
+ * @param {string} collectionPath The path to the collection to delete.
  * @param {number} batchSize The number of documents to delete in each batch.
+ * @return {Promise<void>} A promise that resolves when the collection is deleted.
  */
-async function deleteCollection(collectionPath: string, batchSize: number) {
+async function deleteCollection(collectionPath: string, batchSize: number):
+  Promise<void> {
   const collectionRef = db.collection(collectionPath);
   const query = collectionRef.orderBy("__name__").limit(batchSize);
 
@@ -36,8 +43,14 @@ async function deleteCollection(collectionPath: string, batchSize: number) {
 
 /**
  * Handles the cleanup of user data when a user account is deleted.
- * This includes deleting user docs, storage files, and handling group
- * ownership/memberships.
+ * This Cloud Function is triggered by the `onDelete` event from
+ * Firebase Authentication. It performs the following actions:
+ * 1. Deletes the user's document from the "users" collection.
+ * 2. Deletes the user's username reservation from the "usernames" collection.
+ * 3. Deletes the user's profile picture from Cloud Storage.
+ * 4. Deletes any groups owned by the user, including their subcollections
+ *    (e.g., messages) and associated files in Cloud Storage (e.g., group icon).
+ * 5. Removes the user from the member list of any groups they were a part of.
  */
 export const onUserDelete = functions
   .runWith({maxInstances: 10})
@@ -61,7 +74,7 @@ export const onUserDelete = functions
         batch.delete(usernameDocRef);
         logger.log(`Scheduled deletion for username: ${userData.username}`);
       }
-      if (userDocSnap.exists()) {
+      if (userDocSnap.exists) {
         batch.delete(userDocRef);
         logger.log(`Scheduled deletion for user doc: ${uid}`);
       }
