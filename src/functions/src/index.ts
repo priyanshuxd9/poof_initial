@@ -1,4 +1,10 @@
 
+/**
+ * @fileoverview Cloud Functions for user data management.
+ * This file contains the logic for cleaning up user data across Firestore
+ * and Cloud Storage when a user account is deleted from Firebase Auth.
+ */
+
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 import {FieldValue} from "firebase-admin/firestore";
@@ -10,28 +16,15 @@ const db = admin.firestore();
 const storage = admin.storage();
 
 /**
- * Deletes all documents in a Firestore collection.
- * @param {string} collectionPath The path to the collection.
- * @param {number} batchSize The number of documents to delete in each batch.
- */
-async function deleteCollection(collectionPath: string, batchSize: number) {
-  const collectionRef = db.collection(collectionPath);
-  const query = collectionRef.orderBy("__name__").limit(batchSize);
-
-  return new Promise<void>((resolve, reject) => {
-    deleteQueryBatch(query, resolve).catch(reject);
-  });
-}
-
-/**
- * Recursively deletes documents from a query batch.
+ * Recursively deletes documents from a query batch. This is a helper
+ * for deleteCollection.
  * @param {admin.firestore.Query} query The Firestore query to execute.
  * @param {() => void} resolve The promise resolution function.
  */
 async function deleteQueryBatch(
   query: admin.firestore.Query,
   resolve: () => void,
-) {
+): Promise<void> {
   const snapshot = await query.get();
 
   if (snapshot.size === 0) {
@@ -51,28 +44,49 @@ async function deleteQueryBatch(
 }
 
 /**
+ * Deletes all documents in a Firestore collection or subcollection in batches.
+ * This is used to clean up subcollections like "messages" within a group.
+ * @param {string} collectionPath The path to the collection to delete.
+ * @param {number} batchSize The number of documents to delete in each batch.
+ * @return {Promise<void>} A promise that resolves when the collection is deleted
+ */
+async function deleteCollection(
+  collectionPath: string,
+  batchSize: number,
+): Promise<void> {
+  const collectionRef = db.collection(collectionPath);
+  const query = collectionRef.orderBy("__name__").limit(batchSize);
+
+  return new Promise((resolve, reject) => {
+    deleteQueryBatch(query, resolve).catch(reject);
+  });
+}
+
+
+/**
  * Handles the cleanup of user data when a user account is deleted.
- * This includes deleting user docs, storage files, and handling group
- * ownership/memberships.
+ * This Cloud Function is triggered by the `onDelete` event from Firebase Auth.
+ * @param {UserRecord} user The user record of the deleted user.
+ * @return {Promise<void>} A promise that resolves when cleanup is complete.
  */
 export const onUserDelete = functions
   .runWith({maxInstances: 10})
-  .auth.user().onDelete(async (user: UserRecord) => {
+  .auth.user()
+  .onDelete(async (user: UserRecord): Promise<void> => {
     const {uid} = user;
     const logger = functions.logger;
     logger.log(`Starting cleanup for user: ${uid}`);
 
     try {
       const batch = db.batch();
-
-      // 1. Delete user document and username reservation
       const userDocRef = db.collection("users").doc(uid);
       const userDocSnap = await userDocRef.get();
       const userData = userDocSnap.data();
 
-      // More defensive check to ensure username is a non-empty string.
-      if (userData && typeof userData.username === "string" && userData.username) {
-        const usernameDocRef = db.collection("usernames")
+      // 1. Delete user document and username reservation
+      if (userData?.username && typeof userData.username === "string") {
+        const usernameDocRef = db
+          .collection("usernames")
           .doc(userData.username.toLowerCase());
         batch.delete(usernameDocRef);
         logger.log(`Scheduled deletion for username: ${userData.username}`);
@@ -95,14 +109,14 @@ export const onUserDelete = functions
       }
 
       // 3. Handle group ownership and memberships
-      // Groups owned by the user get fully deleted
-      const ownedGroupsQuery = db.collection("groups").where("ownerId", "==", uid);
+      const ownedGroupsQuery = db
+        .collection("groups")
+        .where("ownerId", "==", uid);
       const ownedGroupsSnapshot = await ownedGroupsQuery.get();
       for (const doc of ownedGroupsSnapshot.docs) {
         logger.log(`User ${uid} owns group ${doc.id}. Deleting it.`);
-        // Delete messages subcollection
         await deleteCollection(`groups/${doc.id}/messages`, 100);
-        // Delete group avatar
+
         const groupAvatarPath = `group-avatars/${uid}/${doc.id}/avatar.jpg`;
         try {
           await storage.bucket().file(groupAvatarPath).delete();
@@ -113,18 +127,17 @@ export const onUserDelete = functions
             logger.error(logMsg, error);
           }
         }
-        // Delete the group document itself
         batch.delete(doc.ref);
       }
 
-      // Groups where the user is just a member are updated
       const memberGroupsQuery = db
         .collection("groups")
         .where("memberUserIds", "array-contains", uid);
       const memberGroupsSnapshot = await memberGroupsQuery.get();
       for (const doc of memberGroupsSnapshot.docs) {
         if (doc.data().ownerId !== uid) {
-          const logMsg = `User ${uid} is a member of group ${doc.id}. Removing.`;
+          const logMsg =
+            `User ${uid} is a member of group ${doc.id}. Removing them.`;
           logger.log(logMsg);
           batch.update(doc.ref, {
             memberUserIds: FieldValue.arrayRemove(uid),
@@ -132,14 +145,10 @@ export const onUserDelete = functions
         }
       }
 
-      // Commit all the Firestore deletions and updates
       await batch.commit();
       logger.log(`Successfully finished cleanup for user: ${uid}`);
     } catch (error) {
       logger.error(`Failed to cleanup user ${uid}:`, error);
-      // Re-throwing the error ensures that the function execution is marked as
-      // a failure in the Cloud Function logs, making it clear that something
-      // went wrong.
       throw new functions.https.HttpsError(
         "internal",
         `Failed to cleanup user ${uid}`,

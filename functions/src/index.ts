@@ -2,7 +2,7 @@
 /**
  * @fileoverview Cloud Functions for user data management.
  * This file contains the logic for cleaning up user data across Firestore
- * and Cloud Storage when a user account is deleted from Firebase Authentication.
+ * Cloud Storage when a user account is deleted from Firebase Authentication.
  */
 
 import * as functions from "firebase-functions/v1";
@@ -21,7 +21,7 @@ const storage = admin.storage();
  *
  * @param {string} collectionPath The path to the collection to delete.
  * @param {number} batchSize The number of documents to delete in each batch.
- * @return {Promise<void>} A promise that resolves when the collection is deleted.
+ * @return {Promise<void>}A promise that resolves when collection is deleted.
  */
 async function deleteCollection(collectionPath: string, batchSize: number):
   Promise<void> {
