@@ -198,8 +198,9 @@ export const leaveGroup = async (groupId: string, userId: string, username: stri
  * Allows a user to join a group using an invite code.
  * @param inviteCode The invite code for the group.
  * @param userId The ID of the user joining.
+ * @param username The username of the user joining.
  */
-export const joinGroupWithCode = async (inviteCode: string, userId: string) => {
+export const joinGroupWithCode = async (inviteCode: string, userId: string, username: string) => {
   ensureFirebaseInitialized();
 
   const groupsRef = collection(db, "groups");
@@ -228,10 +229,26 @@ export const joinGroupWithCode = async (inviteCode: string, userId: string) => {
   const groupDocRef = doc(db, "groups", groupId);
   
   try {
-    await updateDoc(groupDocRef, {
+    const batch = writeBatch(db);
+
+    // 1. Add user to group and update activity
+    batch.update(groupDocRef, {
       memberUserIds: arrayUnion(userId),
       lastActivity: serverTimestamp(),
     });
+
+    // 2. Add system message to chat
+    const messagesColRef = collection(db, "groups", groupId, "messages");
+    const newMessageRef = doc(messagesColRef);
+    batch.set(newMessageRef, {
+        senderId: "system",
+        type: "system_join",
+        text: `${username} has joined the group.`,
+        createdAt: serverTimestamp(),
+    });
+    
+    await batch.commit();
+
   } catch (error) {
     // Rethrow the original error to be caught by the component
     throw error;

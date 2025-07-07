@@ -41,10 +41,10 @@ export function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: JoinGroup
 
 
   const handleSubmit = async () => {
-    if (!user || !user.uid) {
+    if (!user || !user.uid || !user.username) {
       toast({
         title: "Not Authenticated",
-        description: "You must be logged in to join a group.",
+        description: "Your user profile is incomplete. You must have a username to join a group.",
         variant: "destructive",
       });
       return;
@@ -62,7 +62,7 @@ export function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: JoinGroup
     setIsJoining(true);
 
     try {
-      const result = await joinGroupWithCode(trimmedCode, user.uid);
+      const result = await joinGroupWithCode(trimmedCode, user.uid, user.username);
       
       toast({
         title: "Successfully Joined Group!",
