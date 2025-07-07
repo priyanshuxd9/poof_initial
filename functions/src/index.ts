@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Cloud Functions for user data management.
  */
@@ -14,54 +13,25 @@ const db = admin.firestore();
 const storage = admin.storage();
 
 /**
- * Recursively deletes documents from a query batch.
- * @param {admin.firestore.Query} query The Firestore query to execute.
- * @param {() => void} resolve The promise resolution function.
- * @param {(err: Error) => void} reject The promise rejection function.
+ * Deletes all documents in a collection or subcollection in batches.
+ * @param {string} collectionPath The path to the collection.
+ * @param {number} batchSize The number of documents to delete in each batch.
  */
-async function deleteQueryBatch(
-  query: admin.firestore.Query,
-  resolve: () => void,
-  reject: (err: Error) => void,
-) {
-  try {
-    const snapshot = await query.get();
+async function deleteCollection(collectionPath: string, batchSize: number) {
+  const collectionRef = db.collection(collectionPath);
+  const query = collectionRef.orderBy("__name__").limit(batchSize);
 
-    if (snapshot.size === 0) {
-      resolve();
-      return;
-    }
-
+  let snapshot = await query.get();
+  while (snapshot.size > 0) {
     const batch = db.batch();
     snapshot.docs.forEach((doc) => {
       batch.delete(doc.ref);
     });
     await batch.commit();
 
-    process.nextTick(() => {
-      deleteQueryBatch(query, resolve, reject);
-    });
-  } catch (error) {
-    reject(error as Error);
+    // Get the next batch
+    snapshot = await query.get();
   }
-}
-
-/**
- * Deletes all documents in a Firestore collection.
- * @param {string} collectionPath The path to the collection.
- * @param {number} batchSize The number of documents to delete in each batch.
- * @return {Promise<void>} A promise that resolves when the collection is deleted.
- */
-function deleteCollection(
-  collectionPath: string,
-  batchSize: number,
-): Promise<void> {
-  const collectionRef = db.collection(collectionPath);
-  const query = collectionRef.orderBy("__name__").limit(batchSize);
-
-  return new Promise<void>((resolve, reject) => {
-    deleteQueryBatch(query, resolve, reject);
-  });
 }
 
 /**
@@ -91,7 +61,7 @@ export const onUserDelete = functions
         batch.delete(usernameDocRef);
         logger.log(`Scheduled deletion for username: ${userData.username}`);
       }
-      if (userDocSnap.exists) {
+      if (userDocSnap.exists()) {
         batch.delete(userDocRef);
         logger.log(`Scheduled deletion for user doc: ${uid}`);
       }
@@ -101,14 +71,17 @@ export const onUserDelete = functions
       try {
         await storage.bucket().file(avatarPath).delete();
         logger.log(`Deleted avatar from Storage: ${avatarPath}`);
-      } catch (e) {
-        if (e instanceof Error && (e as {code?: number}).code !== 404) {
-          logger.error(`Error deleting avatar for user ${uid}:`, e);
+      } catch (e: unknown) {
+        const error = e as {code?: number};
+        if (error.code !== 404) {
+          logger.error(`Error deleting avatar for user ${uid}:`, error);
         }
       }
 
       // 3. Handle group ownership and memberships
-      const ownedGroupsQuery = db.collection("groups").where("ownerId", "==", uid);
+      const ownedGroupsQuery = db
+        .collection("groups")
+        .where("ownerId", "==", uid);
       const ownedGroupsSnapshot = await ownedGroupsQuery.get();
       for (const doc of ownedGroupsSnapshot.docs) {
         logger.log(`User ${uid} owns group ${doc.id}. Deleting it.`);
@@ -117,9 +90,11 @@ export const onUserDelete = functions
         const groupAvatarPath = `group-avatars/${uid}/${doc.id}/avatar.jpg`;
         try {
           await storage.bucket().file(groupAvatarPath).delete();
-        } catch (e) {
-          if (e instanceof Error && (e as {code?: number}).code !== 404) {
-            logger.error(`Error deleting group avatar for ${doc.id}:`, e);
+        } catch (e: unknown) {
+          const error = e as {code?: number};
+          if (error.code !== 404) {
+            const logMsg = `Error deleting group avatar for ${doc.id}:`;
+            logger.error(logMsg, error);
           }
         }
         batch.delete(doc.ref);
@@ -131,9 +106,9 @@ export const onUserDelete = functions
       const memberGroupsSnapshot = await memberGroupsQuery.get();
       for (const doc of memberGroupsSnapshot.docs) {
         if (doc.data().ownerId !== uid) {
-          logger.log(
-            `User ${uid} is a member of group ${doc.id}. Removing them.`
-          );
+          const logMsg =
+            `User ${uid} is a member of group ${doc.id}. Removing them.`;
+          logger.log(logMsg);
           batch.update(doc.ref, {
             memberUserIds: FieldValue.arrayRemove(uid),
           });
