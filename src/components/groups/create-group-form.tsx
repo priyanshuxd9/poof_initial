@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import React, { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Wand2, Timer, Loader2, Users, Trash2, ImagePlus } from "lucide-react";
+import { Loader2, Users, Trash2, ImagePlus } from "lucide-react";
 import imageCompression from 'browser-image-compression';
 
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { generateInviteCode } from "@/lib/utils";
-import { generateGroupDescription, GenerateGroupDescriptionInput } from "@/ai/flows/generate-group-description";
-import { suggestSelfDestructTimer, SuggestSelfDestructTimerInput } from "@/ai/flows/suggest-self-destruct-timer";
 import { useAuth } from "@/contexts/auth-context";
 import { db, storage } from "@/lib/firebase";
 import { collection, doc, serverTimestamp, Timestamp, setDoc, updateDoc } from "firebase/firestore";
@@ -35,8 +33,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const createGroupSchema = z.object({
   groupName: z.string().min(3, { message: "Group name must be at least 3 characters." }).max(50, { message: "Group name must be at most 50 characters." }),
-  groupPurpose: z.string().max(100, {message: "Purpose is too long (max 100)."}).optional(),
-  groupTheme: z.string().max(50, {message: "Theme is too long (max 50)."}).optional(),
   description: z.string().min(5, { message: "Description must be at least 5 characters." }).max(200, { message: "Description must be at most 200 characters." }),
   selfDestructTimerDays: z.number().min(1).max(31),
 });
@@ -45,7 +41,6 @@ type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
 
 export function CreateGroupForm() {
   const [isPending, startTransition] = useTransition();
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [groupImage, setGroupImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -58,8 +53,6 @@ export function CreateGroupForm() {
     resolver: zodResolver(createGroupSchema),
     defaultValues: {
       groupName: "",
-      groupPurpose: "",
-      groupTheme: "",
       description: "",
       selfDestructTimerDays: 7,
     },
@@ -89,55 +82,6 @@ export function CreateGroupForm() {
     }
   };
 
-  const handleGenerateDescription = async () => {
-    const groupName = form.getValues("groupName");
-    const groupPurpose = form.getValues("groupPurpose");
-    const groupTheme = form.getValues("groupTheme");
-
-    if (!groupName) {
-      toast({ title: "Group Name Required", description: "Please enter a group name to generate a description.", variant: "destructive" });
-      return;
-    }
-    setIsAiLoading(true);
-    try {
-      const input: GenerateGroupDescriptionInput = { 
-        groupName, 
-        groupPurpose: groupPurpose || "General chat", 
-        groupTheme: groupTheme || "Casual" 
-      };
-      const result = await generateGroupDescription(input);
-      if (result.description) {
-        form.setValue("description", result.description.substring(0,200)); 
-        toast({ title: "Description Generated!", description: "AI has suggested a description for your group." });
-      }
-    } catch (error) {
-      toast({ title: "AI Error", description: "Could not generate description.", variant: "destructive" });
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-  const handleSuggestTimer = async () => {
-    const groupName = form.getValues("groupName"); 
-    if (!groupName) {
-      toast({ title: "Group Name Required", description: "Please enter a group name to suggest a timer.", variant: "destructive" });
-      return;
-    }
-    setIsAiLoading(true);
-    try {
-      const input: SuggestSelfDestructTimerInput = { topic: groupName, memberCount: 1 };
-      const result = await suggestSelfDestructTimer(input);
-      if (result.durationDays) {
-        form.setValue("selfDestructTimerDays", Math.max(1, Math.min(31, result.durationDays)));
-        toast({ title: "Timer Suggested!", description: result.reasoning });
-      }
-    } catch (error) {
-      toast({ title: "AI Error", description: "Could not suggest timer.", variant: "destructive" });
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const onSubmit = (values: CreateGroupFormValues) => {
     if (!user || !user.uid) {
       toast({
@@ -161,8 +105,6 @@ export function CreateGroupForm() {
         const initialGroupDocData = {
           name: values.groupName,
           description: values.description,
-          purpose: values.groupPurpose || null,
-          theme: values.groupTheme || null,
           inviteCode: inviteCode,
           ownerId: user.uid,
           memberUserIds: [user.uid],
@@ -224,9 +166,9 @@ export function CreateGroupForm() {
                 onChange={handleImageChange}
                 className="hidden"
                 accept="image/png, image/jpeg, image/webp"
-                disabled={isPending || isAiLoading}
+                disabled={isPending}
               />
-              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isPending || isAiLoading}>
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
                 Choose Image
               </Button>
             </div>
@@ -245,41 +187,12 @@ export function CreateGroupForm() {
             <FormItem>
               <FormLabel className="text-lg">Group Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Weekend Warriors, Project Phoenix" {...field} disabled={isPending || isAiLoading} className="text-base py-2.5"/>
+                <Input placeholder="e.g., Weekend Warriors, Project Phoenix" {...field} disabled={isPending} className="text-base py-2.5"/>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        <div className="grid md:grid-cols-2 gap-6">
-            <FormField
-            control={form.control}
-            name="groupPurpose"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Group Purpose (Optional)</FormLabel>
-                <FormControl>
-                    <Input placeholder="e.g., Planning a trip, Book club" {...field} disabled={isPending || isAiLoading} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="groupTheme"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Group Theme (Optional)</FormLabel>
-                <FormControl>
-                    <Input placeholder="e.g., Fun, Serious, Tech" {...field} disabled={isPending || isAiLoading} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-        </div>
 
         <FormField
           control={form.control}
@@ -287,14 +200,9 @@ export function CreateGroupForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-lg">Description</FormLabel>
-              <div className="flex items-start gap-2">
-                <FormControl className="flex-grow">
-                  <Textarea placeholder="Tell us about your group..." {...field} rows={3} disabled={isPending || isAiLoading} className="text-base py-2.5"/>
-                </FormControl>
-                <Button type="button" variant="outline" size="icon" onClick={handleGenerateDescription} disabled={isPending || isAiLoading || !form.getValues("groupName")} aria-label="Generate Description with AI" className="shrink-0 mt-1">
-                  {isAiLoading && form.formState.dirtyFields.description === undefined ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                </Button>
-              </div>
+              <FormControl>
+                <Textarea placeholder="Tell us about your group..." {...field} rows={3} disabled={isPending} className="text-base py-2.5"/>
+              </FormControl>
               <FormDescription>A brief, catchy description for your group.</FormDescription>
               <FormMessage />
             </FormItem>
@@ -316,13 +224,10 @@ export function CreateGroupForm() {
                     step={1}
                     value={[field.value]}
                     onValueChange={(value) => field.onChange(value[0])}
-                    disabled={isPending || isAiLoading}
+                    disabled={isPending}
                   />
                 </FormControl>
                 <span className="text-lg font-semibold w-12 text-center">{field.value} {field.value === 1 ? "day" : "days"}</span>
-                 <Button type="button" variant="outline" size="icon" onClick={handleSuggestTimer} disabled={isPending || isAiLoading || !form.getValues("groupName")} aria-label="Suggest Timer with AI" className="shrink-0">
-                   {isAiLoading && form.formState.dirtyFields.selfDestructTimerDays === undefined ? <Loader2 className="h-4 w-4 animate-spin" /> : <Timer className="h-4 w-4" />}
-                </Button>
               </div>
               <FormDescription>The group and all its contents will be deleted after this period.</FormDescription>
               <FormMessage />
@@ -330,7 +235,7 @@ export function CreateGroupForm() {
           )}
         />
 
-        <Button type="submit" className="w-full text-lg py-3" disabled={isPending || isAiLoading || !user}>
+        <Button type="submit" className="w-full text-lg py-3" disabled={isPending || !user}>
           {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Users className="mr-2 h-5 w-5" />}
           Create Poof Group
         </Button>
