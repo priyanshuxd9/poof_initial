@@ -287,17 +287,22 @@ export default function DashboardPage() {
           {/* Main Toggle Button */}
           <Button
             variant="default"
-            className="h-14 w-14 rounded-full shadow-lg"
+            className="h-16 w-16 rounded-full shadow-lg p-0 flex items-center justify-center"
             onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
             aria-expanded={isFabMenuOpen}
           >
-            <Plus
+            <svg
               className={cn(
-                "h-14 w-14 transition-transform duration-300 ease-in-out",
+                "w-12 h-12 text-primary-foreground transition-transform duration-300 ease-in-out",
                 isFabMenuOpen && "rotate-45"
               )}
-              strokeWidth={4}
-            />
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="4"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M2 12h20" />
+            </svg>
             <span className="sr-only">
               {isFabMenuOpen ? "Close actions menu" : "Open actions menu"}
             </span>
