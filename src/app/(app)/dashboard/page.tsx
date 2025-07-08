@@ -11,16 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { useState, useEffect, useCallback } from "react";
-import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 // Group type definition
 export interface Group {
@@ -112,10 +105,9 @@ function GroupListItem({ group }: GroupListItemProps) {
 }
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshKey } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
-  const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const router = useRouter();
 
   const fetchAndProcessGroups = useCallback(async () => {
@@ -167,7 +159,7 @@ export default function DashboardPage() {
     if (!authLoading) {
       fetchAndProcessGroups();
     }
-  }, [authLoading, fetchAndProcessGroups]);
+  }, [authLoading, fetchAndProcessGroups, refreshKey]);
 
 
   if (authLoading || isLoadingGroups) {
@@ -197,15 +189,9 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one using the '+' at the bottom.</p>
+          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one.</p>
         </div>
       </div>
-
-      <JoinGroupDialog 
-        open={isJoinDialogOpen} 
-        onOpenChange={setIsJoinDialogOpen}
-        onGroupJoined={fetchAndProcessGroups} 
-      />
 
       {groups.length === 0 ? (
         <Alert className="max-w-2xl mx-auto shadow-md">
@@ -239,32 +225,6 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      <div className="fixed bottom-8 right-8 z-50">
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button className="h-10 w-10 rounded-full shadow-lg" size="icon">
-                    <Plus className="h-6 w-6" strokeWidth={3} />
-                    <span className="sr-only">Add Group</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" className="w-auto mb-2 bg-transparent border-none shadow-none p-0">
-                <DropdownMenuItem 
-                  onSelect={() => router.push('/groups/create')} 
-                  className="!bg-primary !text-primary-foreground !rounded-full !shadow-lg hover:!bg-primary/90 focus:!bg-primary/90 focus:!text-primary-foreground !cursor-pointer !px-6 !py-2.5 !justify-center mb-2 text-base font-semibold"
-                >
-                    <PlusCircle className="mr-2 h-5 w-5" />
-                    <span>Create Group</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onSelect={() => setIsJoinDialogOpen(true)}
-                  className="!bg-primary !text-primary-foreground !rounded-full !shadow-lg hover:!bg-primary/90 focus:!bg-primary/90 focus:!text-primary-foreground !cursor-pointer !px-6 !py-2.5 !justify-center text-base font-semibold"
-                  >
-                    <LogIn className="mr-2 h-5 w-5" />
-                    <span>Join Group</span>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
     </div>
   );
 }

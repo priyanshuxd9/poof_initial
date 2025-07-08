@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import React, { useEffect, useState } from "react"; 
-import { LogOut, UserCircle, Settings, Sun, Moon } from "lucide-react";
+import { LogOut, UserCircle, Settings, Sun, Moon, PlusCircle, LogIn } from "lucide-react";
 import { useTheme } from "next-themes"; 
 
 import { Logo } from "@/components/shared/logo";
@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/auth-context";
 
 
 export function AppHeader() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, setJoinGroupDialogOpen } = useAuth();
   const { theme, setTheme } = useTheme(); 
   const [isMounted, setIsMounted] = useState(false);
 
@@ -65,8 +65,26 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-        <Logo className="hidden sm:flex" />
-        <div className="flex flex-1 items-center justify-end space-x-4">
+        <div className="flex items-center gap-4">
+          <Logo className="hidden sm:flex" />
+          
+          <div className="h-6 w-px bg-border" />
+          
+          <div className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/groups/create">
+                <PlusCircle className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline-block">Create</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setJoinGroupDialogOpen(true)}>
+              <LogIn className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline-block">Join</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end space-x-2">
           {isMounted && (
             <Button
               variant="ghost"
