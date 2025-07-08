@@ -287,13 +287,13 @@ export default function DashboardPage() {
           {/* Main Toggle Button */}
           <Button
             variant="default"
-            className="h-12 w-12 rounded-full shadow-lg"
+            className="h-14 w-14 rounded-full shadow-lg"
             onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
             aria-expanded={isFabMenuOpen}
           >
             <Plus
               className={cn(
-                "h-8 w-8 transition-transform duration-300 ease-in-out",
+                "h-9 w-9 transition-transform duration-300 ease-in-out",
                 isFabMenuOpen && "rotate-45"
               )}
               strokeWidth={4}
