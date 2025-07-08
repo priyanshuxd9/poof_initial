@@ -287,7 +287,7 @@ export default function DashboardPage() {
           {/* Main Toggle Button */}
           <Button
             variant="default"
-            className="h-10 w-10 rounded-full shadow-lg"
+            className="h-12 w-12 rounded-full shadow-lg"
             onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
             aria-expanded={isFabMenuOpen}
           >
