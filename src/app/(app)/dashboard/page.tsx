@@ -15,12 +15,6 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 
 // Group type definition
@@ -258,71 +252,57 @@ export default function DashboardPage() {
           />
         )}
 
-        <TooltipProvider>
-          <div className="relative z-40 flex flex-col items-center gap-4">
-            {/* Action Buttons Container */}
-            <div
-              className={cn(
-                "flex flex-col items-center gap-4 transition-all duration-300 ease-in-out",
-                isFabMenuOpen
-                  ? "translate-y-0 opacity-100"
-                  : "translate-y-8 opacity-0 pointer-events-none"
-              )}
-            >
-              {/* Join Group Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    className="h-14 w-14 rounded-full shadow-lg"
-                    onClick={() => {
-                      setJoinGroupDialogOpen(true);
-                      setIsFabMenuOpen(false);
-                    }}
-                  >
-                    <LogIn className="h-6 w-6" />
-                    <span className="sr-only">Join Group</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  <p>Join Group</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Create Group Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button asChild className="h-14 w-14 rounded-full shadow-lg">
-                    <Link href="/groups/create">
-                      <PlusCircle className="h-6 w-6" />
-                      <span className="sr-only">Create Group</span>
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  <p>Create Group</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
-            {/* Main Toggle Button */}
+        <div className="relative z-40 flex flex-col items-end gap-4">
+          {/* Action Buttons Container */}
+          <div
+            className={cn(
+              "flex flex-col items-end gap-4 transition-all duration-300 ease-in-out",
+              isFabMenuOpen
+                ? "translate-y-0 opacity-100"
+                : "translate-y-8 opacity-0 pointer-events-none"
+            )}
+          >
+            {/* Join Group Button */}
             <Button
-              className="h-16 w-16 rounded-full shadow-lg"
-              onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
-              aria-expanded={isFabMenuOpen}
+              variant="secondary"
+              className="h-auto rounded-full px-5 py-3 font-bold shadow-lg"
+              onClick={() => {
+                setJoinGroupDialogOpen(true);
+                setIsFabMenuOpen(false);
+              }}
             >
-              <Plus
-                className={cn(
-                  "h-7 w-7 transition-transform duration-300 ease-in-out",
-                  isFabMenuOpen && "rotate-45"
-                )}
-              />
-              <span className="sr-only">
-                {isFabMenuOpen ? "Close actions menu" : "Open actions menu"}
-              </span>
+              <LogIn className="mr-2 h-5 w-5" />
+              Join Group
+            </Button>
+            
+            {/* Create Group Button */}
+            <Button asChild className="h-auto rounded-full px-5 py-3 font-bold shadow-lg">
+              <Link href="/groups/create">
+                <PlusCircle className="mr-2 h-5 w-5" />
+                Create Group
+              </Link>
             </Button>
           </div>
-        </TooltipProvider>
+
+          {/* Main Toggle Button */}
+          <Button
+            variant="ghost"
+            className="h-20 w-20 rounded-full"
+            onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
+            aria-expanded={isFabMenuOpen}
+          >
+            <Plus
+              className={cn(
+                "h-12 w-12 text-foreground transition-transform duration-300 ease-in-out",
+                isFabMenuOpen && "rotate-45"
+              )}
+              strokeWidth={2.5}
+            />
+            <span className="sr-only">
+              {isFabMenuOpen ? "Close actions menu" : "Open actions menu"}
+            </span>
+          </Button>
+        </div>
       </div>
     </>
   );
