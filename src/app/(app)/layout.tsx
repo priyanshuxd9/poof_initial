@@ -6,10 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { AppHeader } from '@/components/shared/app-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { JoinGroupDialog } from '@/components/groups/join-group-dialog';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, isJoinGroupDialogOpen, setJoinGroupDialogOpen, triggerDataRefresh } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -23,10 +22,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
   
-  const handleGroupJoined = () => {
-    triggerDataRefresh(); // This will update the key in context
-    // The dashboard component will see the key change and re-fetch its data.
-  };
 
   if (loading) {
     return (
@@ -73,11 +68,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Render the standard layout for all other app pages
   return (
     <>
-      <JoinGroupDialog
-        open={isJoinGroupDialogOpen}
-        onOpenChange={setJoinGroupDialogOpen}
-        onGroupJoined={handleGroupJoined}
-      />
       <div className="flex min-h-screen flex-col bg-background">
         <AppHeader />
         <main className="flex-1">

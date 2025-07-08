@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, Timestamp, orderBy } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { JoinGroupDialog } from "@/components/groups/join-group-dialog";
 
 // Group type definition
 export interface Group {
@@ -108,6 +109,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading, refreshKey } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+  const [isJoinGroupDialogOpen, setJoinGroupDialogOpen] = useState(false);
   const router = useRouter();
 
   const fetchAndProcessGroups = useCallback(async () => {
@@ -155,6 +157,11 @@ export default function DashboardPage() {
     }
   }, [user]);
 
+  const handleGroupJoined = useCallback(() => {
+    fetchAndProcessGroups();
+  }, [fetchAndProcessGroups]);
+
+
   useEffect(() => {
     if (!authLoading) {
       fetchAndProcessGroups();
@@ -185,46 +192,70 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
-          <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one.</p>
+    <>
+      <JoinGroupDialog
+        open={isJoinGroupDialogOpen}
+        onOpenChange={setJoinGroupDialogOpen}
+        onGroupJoined={handleGroupJoined}
+      />
+      <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">Welcome, {user?.username || user?.email}!</h1>
+            <p className="text-sm text-muted-foreground">Manage your Poof groups or start a new one.</p>
+          </div>
         </div>
+
+        {groups.length === 0 ? (
+          <Alert className="max-w-2xl mx-auto shadow-md">
+            <Info className="h-4 w-4" />
+            <AlertTitle className="font-semibold">No Active Groups!</AlertTitle>
+            <AlertDescription>
+              You aren't part of any active Poof groups. Why not create one or join using an invite code?
+              Expired groups can be found in the past groups archive.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <>
+            <div className="mb-4 flex items-center gap-2">
+              <ListChecks className="h-6 w-6 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Your Active Groups</h2>
+            </div>
+            <div className="space-y-3">
+              {groups.map((group) => (
+                <GroupListItem key={group.id} group={group} />
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="mt-8 flex justify-end">
+          <Button variant="link" asChild className="text-muted-foreground hover:text-primary p-0 h-auto">
+              <Link href="/archive">
+                  View Past Groups
+                  <Archive className="ml-1.5 h-4 w-4" />
+              </Link>
+          </Button>
+        </div>
+
       </div>
 
-      {groups.length === 0 ? (
-        <Alert className="max-w-2xl mx-auto shadow-md">
-          <Info className="h-4 w-4" />
-          <AlertTitle className="font-semibold">No Active Groups!</AlertTitle>
-          <AlertDescription>
-            You aren't part of any active Poof groups. Why not create one or join using an invite code?
-            Expired groups can be found in the past groups archive.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
-          <div className="mb-4 flex items-center gap-2">
-            <ListChecks className="h-6 w-6 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Your Active Groups</h2>
-          </div>
-          <div className="space-y-3">
-            {groups.map((group) => (
-              <GroupListItem key={group.id} group={group} />
-            ))}
-          </div>
-        </>
-      )}
-
-      <div className="mt-8 flex justify-end">
-        <Button variant="link" asChild className="text-muted-foreground hover:text-primary p-0 h-auto">
-            <Link href="/archive">
-                View Past Groups
-                <Archive className="ml-1.5 h-4 w-4" />
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-center gap-3">
+        <Button asChild className="h-14 w-14 rounded-full shadow-lg">
+            <Link href="/groups/create">
+                <Plus className="h-6 w-6" />
+                <span className="sr-only">Create Group</span>
             </Link>
         </Button>
+        <Button
+            variant="secondary"
+            className="h-14 w-14 rounded-full shadow-lg"
+            onClick={() => setJoinGroupDialogOpen(true)}
+        >
+            <LogIn className="h-6 w-6" />
+            <span className="sr-only">Join Group</span>
+        </Button>
       </div>
-
-    </div>
+    </>
   );
 }

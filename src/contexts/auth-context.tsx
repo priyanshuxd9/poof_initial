@@ -28,8 +28,6 @@ interface AuthContextType {
   updateProfilePicture: (file: File) => Promise<void>;
   sendSignInLink: (email: string) => Promise<void>;
   checkAndSignInWithMagicLink: () => void;
-  isJoinGroupDialogOpen: boolean;
-  setJoinGroupDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   refreshKey: number;
   triggerDataRefresh: () => void;
 }
@@ -40,7 +38,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessingMagicLink, setIsProcessingMagicLink] = useState(true);
-  const [isJoinGroupDialogOpen, setJoinGroupDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const router = useRouter();
   const { toast } = useToast();
@@ -243,7 +240,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [router, toast]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateUserContext, sendPasswordReset, updateProfilePicture, sendSignInLink, checkAndSignInWithMagicLink, isProcessingMagicLink, isJoinGroupDialogOpen, setJoinGroupDialogOpen, refreshKey, triggerDataRefresh }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateUserContext, sendPasswordReset, updateProfilePicture, sendSignInLink, checkAndSignInWithMagicLink, isProcessingMagicLink, refreshKey, triggerDataRefresh }}>
       {children}
     </AuthContext.Provider>
   );
