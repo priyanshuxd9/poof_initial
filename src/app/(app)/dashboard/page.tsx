@@ -287,13 +287,13 @@ export default function DashboardPage() {
           {/* Main Toggle Button */}
           <Button
             variant="default"
-            className="h-16 w-16 rounded-full shadow-lg p-0 flex items-center justify-center"
+            className="h-11 w-11 rounded-full shadow-lg p-0 flex items-center justify-center"
             onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
             aria-expanded={isFabMenuOpen}
           >
             <svg
               className={cn(
-                "w-12 h-12 text-primary-foreground transition-transform duration-300 ease-in-out",
+                "w-10 h-10 text-primary-foreground transition-transform duration-300 ease-in-out",
                 isFabMenuOpen && "rotate-45"
               )}
               fill="none"
