@@ -293,7 +293,7 @@ export default function DashboardPage() {
           >
             <Plus
               className={cn(
-                "h-9 w-9 transition-transform duration-300 ease-in-out",
+                "h-[54px] w-[54px] transition-transform duration-300 ease-in-out",
                 isFabMenuOpen && "rotate-45"
               )}
               strokeWidth={4}
