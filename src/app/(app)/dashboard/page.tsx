@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -292,7 +293,7 @@ export default function DashboardPage() {
           >
             <Plus
               className={cn(
-                "h-8 w-8 text-foreground transition-transform duration-300 ease-in-out",
+                "h-12 w-12 text-foreground transition-transform duration-300 ease-in-out",
                 isFabMenuOpen && "rotate-45"
               )}
               strokeWidth={3}
