@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -287,16 +286,16 @@ export default function DashboardPage() {
           {/* Main Toggle Button */}
           <Button
             variant="ghost"
-            className="h-20 w-20 rounded-full"
+            className="h-14 w-14 rounded-full"
             onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
             aria-expanded={isFabMenuOpen}
           >
             <Plus
               className={cn(
-                "h-12 w-12 text-foreground transition-transform duration-300 ease-in-out",
+                "h-8 w-8 text-foreground transition-transform duration-300 ease-in-out",
                 isFabMenuOpen && "rotate-45"
               )}
-              strokeWidth={2.5}
+              strokeWidth={3}
             />
             <span className="sr-only">
               {isFabMenuOpen ? "Close actions menu" : "Open actions menu"}
