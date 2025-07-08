@@ -1,68 +1,121 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // HELPER FUNCTIONS
-    function isAuth() {
+
+    // ========== HELPER FUNCTIONS ==========
+    function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
+
+    function isMember(groupData) {
+      return request.auth.uid in groupData.memberUserIds;
     }
 
-    function isGroupMember(groupId) {
-      let group = get(/databases/$(database)/documents/groups/$(groupId));
-      // Ensure group exists and user is a member
-      return exists(/databases/$(database)/documents/groups/$(groupId)) && 
-             request.auth.uid in group.data.memberUserIds;
-    }
-    
-    function isGroupOwner(groupId) {
-       let group = get(/databases/$(database)/documents/groups/$(groupId));
-       // Ensure group exists and user is the owner
-       return exists(/databases/$(database)/documents/groups/$(groupId)) &&
-              request.auth.uid == group.data.ownerId;
-    }
-    
-    // USER DATA
-    // Users can only read/write their own document.
-    match /users/{userId} {
-      allow read, update, delete: if isOwner(userId);
-      allow create: if isAuth() && isOwner(userId);
-    }
-
-    // USERNAMES
-    // Usernames must be unique. This is enforced by app logic using a transaction/batch.
+    // ========== USERNAMES (for ensuring uniqueness) ==========
     match /usernames/{username} {
-      allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
-      allow delete: if isAuth() && get(/databases/$(database)/documents/usernames/$(username)).data.uid == request.auth.uid;
+      allow read: if isSignedIn();
+      // A user can only create a username document that maps to their own UID
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      // A user can only delete their own username document
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false; // Usernames are not updatable, they are deleted and re-created
     }
 
-    // GROUPS
+    // ========== USERS (profile data) ==========
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      // This rule allows a user to create their own profile document.
+      // It's intentionally simple to avoid race conditions during sign-up.
+      allow create: if request.auth.uid == userId;
+      // A user can only update their own profile (username or photo)
+      allow update: if request.auth.uid == userId
+                    && request.resource.data.uid == userId; // Cannot change UID
+    }
+
+    // ========== GROUPS & MESSAGES ==========
     match /groups/{groupId} {
-      // Must be authenticated to create a group, and must be the owner listed in the new document.
-      allow create: if isAuth() && isOwner(request.resource.data.ownerId);
+      // READ: Any signed-in user can read group metadata. Messages are protected by a separate rule.
+      allow read: if isSignedIn();
 
-      // Must be a member to read group data.
-      allow read: if isGroupMember(groupId);
-      
-      // Allow updates by the owner OR by a user joining/leaving.
-      // App logic handles the specific permissions for these actions.
-      allow update: if isAuth();
-    }
+      // CREATE: A user can create a group if they are the owner and sole initial member.
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.memberUserIds[0] == request.auth.uid
+                    && request.resource.data.memberUserIds.size() == 1;
 
-    // MESSAGES
-    match /groups/{groupId}/messages/{messageId} {
-      allow list, get: if isGroupMember(groupId);
+      // UPDATE: A user can update a group under specific conditions (joining, leaving, owner editing, etc.)
+      allow update: if isSignedIn() && (
+                      isJoiningGroup(resource.data, request.resource.data) ||
+                      isLeavingGroup(resource.data, request.resource.data) ||
+                      isOwnerManagingGroup(resource.data, request.resource.data) ||
+                      isMemberUpdatingActivity(resource.data, request.resource.data)
+                    );
       
-      // A user must be a member to create any message.
-      // A user can create a message for themselves (senderId matches their uid).
-      // A user can also create a "system" message (e.g., for joining or leaving).
-      allow create: if isGroupMember(groupId) && 
-                     (request.resource.data.senderId == request.auth.uid || request.resource.data.senderId == 'system');
+      // DELETE: Groups are never deleted by clients.
+      allow delete: if false;
+
+      // --- HELPER FUNCTIONS for /groups/{groupId} ---
+
+      function isJoiningGroup(existing, incoming) {
+        let isAddingSelf = incoming.memberUserIds == existing.memberUserIds.concat([request.auth.uid]);
+        let isNotAlreadyMember = !isMember(existing);
+        let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
+        
+        return isAddingSelf && isNotAlreadyMember && onlyMembersAndActivityChanged;
+      }
+      
+      function isLeavingGroup(existing, incoming) {
+          let isRemovingSelf = incoming.memberUserIds == existing.memberUserIds.remove([request.auth.uid]);
+          let isNotOwner = existing.ownerId != request.auth.uid;
+          let isExistingMember = isMember(existing);
+          let onlyMembersAndActivityChanged = incoming.diff(existing).affectedKeys().hasOnly(['memberUserIds', 'lastActivity']);
+
+          return isRemovingSelf && isNotOwner && isExistingMember && onlyMembersAndActivityChanged;
+      }
+
+      function isOwnerManagingGroup(existing, incoming) {
+        let userIsOwner = existing.ownerId == request.auth.uid;
+        let immutableFieldsUnchanged = incoming.ownerId == existing.ownerId
+                                       && incoming.createdAt == existing.createdAt
+                                       && incoming.inviteCode == existing.inviteCode
+                                       && incoming.memberUserIds == existing.memberUserIds;
+
+        return userIsOwner && immutableFieldsUnchanged;
+      }
+      
+      function isMemberUpdatingActivity(existing, incoming) {
+        let userIsMember = isMember(existing);
+        let onlyActivityChanges = incoming.diff(existing).affectedKeys().hasOnly(['lastActivity']);
+        
+        return userIsMember && onlyActivityChanges;
+      }
+
+      // === SUBCOLLECTION: MESSAGES ===
+      match /messages/{messageId} {
+        // READ: Only members of the parent group can read messages.
+        allow read: if isSignedIn() && isMember(get(/databases/$(database)/documents/groups/$(groupId)).data);
+
+        // CREATE: A user can create a message if they are the sender, OR if it's a valid system message.
+        allow create: if isSignedIn() && isMember(get(/databases/$(database)/documents/groups/$(groupId)).data) && (
+                        // Condition 1: A user is creating their own message
+                        (request.resource.data.senderId == request.auth.uid) ||
+                        // Condition 2: A "join" or "leave" system message is being created by a member
+                        (
+                          request.resource.data.senderId == "system" &&
+                          (request.resource.data.type == "system_join" || request.resource.data.type == "system_leave")
+                        )
+                      );
+
+        // UPDATE: Only members can update messages, and ONLY for adding/removing reactions.
+        allow update: if isSignedIn()
+                      && isMember(get(/databases/$(database)/documents/groups/$(groupId)).data)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+        
+        // DELETE: No one can delete individual messages.
+        allow delete: if false;
+      }
     }
   }
 }
