@@ -214,8 +214,10 @@ export function CreateGroupForm() {
           name="selfDestructTimerDays"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-lg">Self-Destruct Timer (1-31 days)</FormLabel>
-              <div className="flex items-center gap-4">
+              <div className="flex justify-between items-center">
+                <FormLabel className="text-lg">Self-Destruct Timer (1-31 days)</FormLabel>
+              </div>
+              <div className="flex items-center gap-4 pt-1">
                 <Trash2 className="h-6 w-6 text-muted-foreground" />
                 <FormControl className="flex-grow">
                   <Slider
@@ -227,14 +229,14 @@ export function CreateGroupForm() {
                     disabled={isPending}
                   />
                 </FormControl>
-                <span className="text-lg font-semibold w-12 text-center">{field.value} {field.value === 1 ? "day" : "days"}</span>
+                <span className="text-lg font-semibold w-24 text-center">{field.value} {field.value === 1 ? "day" : "days"}</span>
               </div>
               <FormDescription>The group and all its contents will be deleted after this period.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-
+        
         <Button type="submit" className="w-full text-lg py-3" disabled={isPending || !user}>
           {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Users className="mr-2 h-5 w-5" />}
           Create Poof Group
